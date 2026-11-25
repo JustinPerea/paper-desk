@@ -37,31 +37,37 @@ function digitValue(ch: string): number {
   return (cp - start) % 10;
 }
 
-const NUM_TOKEN = /\d[\d,]*(?:\.\d+)?/g;
-/** Numeral tokens of a string, thousands separators removed. Shared with script.ts. */
+// normalizeNumberText already removed valid thousands separators, so any comma left separates two numbers.
+const NUM_TOKEN = /\d+(?:\.\d+)?/g;
+/** Numeral tokens of a string. One tokenizer for every side of every check; shared with script.ts. */
 export function numerals(s: string): string[] {
-  return (normalizeNumberText(s).match(NUM_TOKEN) ?? []).map((t) => t.replace(/,/g, ""));
+  return normalizeNumberText(s).match(NUM_TOKEN) ?? [];
 }
 
 /** A quote must carry enough text to prove something: 6 words in a paragraph, 3 tokens in a table. */
 export const MIN_QUOTE_WORDS = 6;
 export const MIN_TABLE_QUOTE_TOKENS = 3;
 
+/**
+ * True when the needle (a number's value) is in the haystack (its quote): every numeral of the needle is a whole
+ * numeral token of the haystack, and the needle's text appears with no digit glued to either side ("0.68" is not
+ * in "0.684", ".5" is not in "10.5", "26" is not in "26.8").
+ */
 export function containsNumber(haystack: string, needle: string): boolean {
   const h = normalizeNumberText(haystack);
   const n = normalizeNumberText(needle);
   if (!n) return false;
+  const hTokens = new Set(numerals(h));
+  if (!numerals(n).every((t) => hTokens.has(t))) return false;
+  const digit = (c: string | undefined) => c !== undefined && /\d/.test(c);
   let from = 0;
   for (;;) {
     const i = h.indexOf(n, from);
     if (i < 0) return false;
-    const before = h[i - 1] ?? "";
-    const after = h[i + n.length] ?? "";
-    const startsNum = /\d/.test(n[0]!);
-    const endsNum = /\d/.test(n[n.length - 1]!);
-    const glued = (startsNum && (/\d/.test(before) || (before === "." && /\d/.test(h[i - 2] ?? "")))) ||
-      (endsNum && (/\d/.test(after) || (after === "." && /\d/.test(h[i + n.length + 1] ?? ""))));
-    if (!glued) return true;
+    const end = i + n.length;
+    const gluedLeft = digit(h[i - 1]) || (/[.,]/.test(h[i - 1] ?? "") && digit(h[i - 2]) && digit(n[0]));
+    const gluedRight = digit(h[end]) || (/[.,]/.test(h[end] ?? "") && digit(h[end + 1]) && digit(n[n.length - 1]));
+    if (!gluedLeft && !gluedRight) return true;
     from = i + 1;
   }
 }
@@ -81,7 +87,7 @@ export interface VerifyResult {
   claims: { index: number; status: ClaimStatus }[];
   limits_authors: { index: number; status: "ok" | "quote_not_ok" | "quote_missing" }[];
   inference_claims: number;
-  /** Numerals in free-text fields that match no verified number and no ok quote. */
+  /** Numerals in any string field that match no verified number or ok quote (or, for paper metadata, the page). */
   numeral_issues: NumeralIssue[];
   /** False when the record names a different paper or version than the one parsed. */
   paper_match: boolean;
@@ -92,7 +98,7 @@ export interface NumeralIssue {
   numeral: string;
 }
 export interface Dropped {
-  kind: "quote" | "number" | "claim" | "limit" | "result";
+  kind: "quote" | "number" | "claim" | "limit" | "result" | "overclaim" | "person" | "figure" | "applies_to";
   id: string;
   reason: string;
 }
@@ -105,6 +111,41 @@ function anchorTexts(paper: ParsedPaper): Map<string, string> {
   for (const f of paper.figures) m.set(f.id, f.caption);
   return m;
 }
+
+/**
+ * Every string in the record with its path ("claims[0].text", "likely_overclaims[2]"). Walking the whole record means
+ * a field added to the schema later is scanned for numerals by default; skipping one has to be written down below.
+ */
+export function stringFields(value: unknown, path = ""): [string, string][] {
+  if (typeof value === "string") return [[path, value]];
+  if (Array.isArray(value)) return value.flatMap((v, i) => stringFields(v, `${path}[${i}]`));
+  if (value && typeof value === "object") {
+    return Object.entries(value).flatMap(([k, v]) => stringFields(v, path ? `${path}.${k}` : k));
+  }
+  return [];
+}
+
+/**
+ * Not scanned: identifiers and machine fields (checked elsewhere or by the schema), quote text (verified against its
+ * anchor) and number values (verified against their quote).
+ */
+const EXEMPT_FIELDS: RegExp[] = [
+  /^paper\.(arxiv_id|version|url|license|read_at|source)$/,
+  /^quotes\[\d+\]\.(id|text|anchor)$/,
+  /^claims\[\d+\]\.(quote_ids\[\d+\]|provenance)$/,
+  /^numbers\[\d+\]\.(id|value|quote_id)$/,
+  /^limits_authors\[\d+\]\.quote_id$/,
+  /^figures\[\d+\]\.id$/,
+  /^compact\.(license|code_url|depth)$/,
+];
+/** Checked against the parsed page's title, authors, headings and captions as well as the verified quotes. */
+const PAGE_FIELDS: RegExp[] = [
+  /^paper\.(title|authors_as_printed\[\d+\]|affiliations\[\d+\])$/,
+  /^quotes\[\d+\]\.section_title$/,
+  /^figures\[\d+\]\.caption$/,
+  /^named_people\[\d+\]$/,
+  /^compact\.results\[\d+\]\.location$/,
+];
 
 export function verifyRecord(record: FullRecord, paper: ParsedPaper): VerifyResult {
   // The record is model-written; the parsed paper is the trusted identity.
@@ -153,21 +194,20 @@ export function verifyRecord(record: FullRecord, paper: ParsedPaper): VerifyResu
   record.quotes.forEach((q, i) => {
     if (quotes[i]!.status === "ok") numerals(q.text).forEach((t) => allowed.add(t));
   });
+  // Paper metadata (title, authors, section titles, captions) may carry numerals the quotes don't, such as
+  // "Section 4.2" or an affiliation mark. Those fields are checked against the parsed page instead.
+  const fromPage = new Set(allowed);
+  [paper.title, ...paper.authors_as_printed, ...paper.sections.map((x) => x.title), ...paper.tables.map((t) => t.caption), ...paper.figures.map((f) => f.caption)]
+    .forEach((t) => numerals(t).forEach((n) => fromPage.add(n)));
+  // Anchor ids ("S4.T1") are page text too: a location may name one.
+  texts.forEach((_, anchor) => numerals(anchor).forEach((n) => fromPage.add(n)));
   const numeral_issues: NumeralIssue[] = [];
-  const scan = (field: string, text: string | null | undefined) => {
-    if (!text) return;
-    for (const t of numerals(text.split(paper.arxiv_id).join(" "))) if (!allowed.has(t)) numeral_issues.push({ field, numeral: t });
-  };
-  scan("compact.claim", record.compact.claim);
-  record.compact.results.forEach((r, i) => scan(`compact.results[${i}].finding`, r.finding));
-  scan("compact.limits", record.compact.limits);
-  scan("change_for_agents", record.change_for_agents);
-  record.claims.forEach((c, i) => scan(`claims[${i}].text`, c.text));
-  record.limits_authors.forEach((l, i) => scan(`limits_authors[${i}].text`, l.text));
-  record.numbers.forEach((n, i) => {
-    scan(`numbers[${i}].comparison`, n.comparison);
-    scan(`numbers[${i}].condition`, n.condition);
-  });
+  for (const [field, text] of stringFields(record)) {
+    if (EXEMPT_FIELDS.some((re) => re.test(field))) continue;
+    const ok = PAGE_FIELDS.some((re) => re.test(field)) ? fromPage : allowed;
+    // The parsed paper's id is the trusted identity (paper_match checks the record's); the record's is not exempt.
+    for (const t of numerals(text.split(paper.arxiv_id).join(" "))) if (!ok.has(t)) numeral_issues.push({ field, numeral: t });
+  }
 
   const all_ok =
     paper_match &&
@@ -236,9 +276,34 @@ export function applyVerification(
     dropped.push({ kind: "result", id: `compact.results[${i}]`, reason: `unverified_numeral ${badResult.get(i)!.join(", ")}` });
     return false;
   });
-  const reported = result.numeral_issues.filter((i) => !/^(claims|limits_authors|numbers|compact\.results)\[/.test(i.field));
+  // Plain string lists and figures: drop the entry that carries the numeral.
+  const dropEntries = <T,>(list: T[], prefix: string, kind: Dropped["kind"], label: string): T[] => {
+    const bad = badAt(prefix);
+    return list.filter((_, i) => {
+      if (!bad.has(i)) return true;
+      dropped.push({ kind, id: `${label}[${i}]`, reason: `unverified_numeral ${bad.get(i)!.join(", ")}` });
+      return false;
+    });
+  };
+  const likely_overclaims = dropEntries(record.likely_overclaims, "likely_overclaims", "overclaim", "likely_overclaims");
+  const named_people = dropEntries(record.named_people, "named_people", "person", "named_people");
+  const figures = dropEntries(record.figures, "figures", "figure", "figures");
+  const applies_to = dropEntries(record.compact.applies_to, "compact\\.applies_to", "applies_to", "compact.applies_to");
+  const reported = result.numeral_issues.filter(
+    (i) => !/^(claims|limits_authors|numbers|compact\.results|likely_overclaims|named_people|figures|compact\.applies_to)\[/.test(i.field),
+  );
   return {
-    record: { ...record, quotes: record.quotes.filter((q) => okQuotes.has(q.id)), numbers, claims, limits_authors, compact: { ...record.compact, results } },
+    record: {
+      ...record,
+      quotes: record.quotes.filter((q) => okQuotes.has(q.id)),
+      numbers,
+      claims,
+      limits_authors,
+      likely_overclaims,
+      named_people,
+      figures,
+      compact: { ...record.compact, results, applies_to },
+    },
     dropped,
     reported,
   };

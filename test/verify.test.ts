@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { gold, parseFixture } from "./helpers.ts";
 import { FullRecord } from "../lib/record.ts";
-import { applyVerification, containsNumber, verifyRecord } from "../lib/verify.ts";
+import { applyVerification, containsNumber, numerals, verifyRecord } from "../lib/verify.ts";
 
 const paper = parseFixture("2611.27106");
 const base = () => FullRecord.parse(gold("2611.27106.record.json"));
@@ -237,4 +237,55 @@ test("digits from every set fold to their real value, including back-to-back mat
   assert.equal(normalizeNumberText("٢٦٫٨"), "26.8"); // Arabic-Indic
   assert.equal(normalizeNumberText("२६"), "26"); // Devanagari
   assert.equal(normalizeNumberText("\u{1E950}\u{1E959}"), "09"); // Adlam
+});
+
+test("one tokenizer: a comma that is not a thousands separator splits numbers", () => {
+  assert.deepEqual(numerals("groups 1,2 and 3"), ["1", "2", "3"]);
+  assert.deepEqual(numerals("n = 1,234,567"), ["1234567"]);
+  assert.deepEqual(numerals("0.91–0.94"), ["0.91", "0.94"]);
+});
+
+test("a number value must match whole numerals of its quote on both sides", () => {
+  assert.ok(!containsNumber("rose to 10.5 points", ".5"));
+  assert.ok(!containsNumber("rose to 10.5 points", "0.5"));
+  assert.ok(!containsNumber("accuracy 26.8%", "26"));
+  assert.ok(!containsNumber("groups 1,2 and 3", "12"));
+  assert.ok(containsNumber("mean quality 0.91–0.94, while", "0.91–0.94"));
+});
+
+test("every string field is scanned, not only a fixed list", () => {
+  const { r, v } = withText((r) => {
+    r.compact.method = "Ran 9 seeds.";
+    r.likely_overclaims.push("Beats humans by 30 points.");
+    r.compact.applies_to.push("agents with 64 tools");
+    r.numbers[0]!.unit = "x 1000";
+    r.named_people.push("Agent 47");
+  });
+  const key = v.numeral_issues.map((i) => `${i.field}=${i.numeral}`).sort();
+  assert.ok(key.includes("compact.method=9"), key.join(" "));
+  assert.ok(key.some((k) => k.startsWith("likely_overclaims[") && k.endsWith("=30")));
+  assert.ok(key.some((k) => k.startsWith("compact.applies_to[") && k.endsWith("=64")));
+  assert.ok(key.includes("numbers[0].unit=1000"));
+  assert.ok(key.some((k) => k.startsWith("named_people[") && k.endsWith("=47")));
+  assert.equal(v.all_ok, false);
+  const { record, reported } = applyVerification(r, v);
+  assert.ok(!record.likely_overclaims.some((o) => o.includes("30")));
+  assert.ok(!record.compact.applies_to.some((a) => a.includes("64")));
+  assert.ok(!record.named_people.includes("Agent 47"));
+  assert.ok(!record.numbers.some((n) => n.unit === "x 1000"));
+  assert.ok(reported.some((i) => i.field === "compact.method"));
+});
+
+test("paper metadata fields may use numerals from the parsed page, prose fields may not", () => {
+  const ok = withText((r) => {
+    r.compact.results[0]!.location = "Table 7 (S8.T7)";
+    r.quotes[0]!.section_title = "Abstract";
+  });
+  assert.deepEqual(ok.v.numeral_issues, []);
+  const bad = withText((r) => {
+    r.compact.results[0]!.location = "Table 99";
+    r.compact.claim = "See Table 7.";
+  });
+  const key = bad.v.numeral_issues.map((i) => `${i.field}=${i.numeral}`).sort();
+  assert.deepEqual(key, ["compact.claim=7", "compact.results[0].location=99"]);
 });

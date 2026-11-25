@@ -30,3 +30,9 @@ Parser, record schema, verifier and script check, with no model calls. Built on 
 
 ## Not done
 - No affiliations from the parser (the gold record has them by hand). No PDF fallback. Equation-heavy text is only as readable as the alttext.
+
+## Verifier: whole-record scan and one tokenizer (2026-11-24, after an automated security review)
+- The numeral scan walks every string field of the record (`stringFields`), so a field added to the schema later is scanned by default. The skipped fields are listed in `EXEMPT_FIELDS`: ids, quote text and number values (each verified on its own), and machine fields (`paper.arxiv_id`, `version`, `url`, `license`, `read_at`, `source`, `compact.license`, `code_url`, `depth`). Piece 3's workflow must set those machine fields itself from arXiv metadata and the fetch, never from model output, because their content is not scanned.
+- Paper metadata (`paper.title`, authors, affiliations, `quotes[].section_title`, `figures[].caption`, `named_people`, `compact.results[].location`) may also use numerals from the parsed page's title, authors, headings, captions and anchor ids, so "Table 7" or "S8.T7" passes there but not in prose.
+- Entries of `likely_overclaims`, `named_people`, `figures` and `compact.applies_to` with an unverified numeral are dropped like claims; `compact.method` joins the single-string fields that are reported for regeneration.
+- `numerals()` no longer strips leftover commas: `normalizeNumberText` already removed valid thousands separators, so "1,2" is two numbers, not 12. `containsNumber` requires every numeral of a value to be a whole numeral token of its quote and checks for a glued digit on both sides whatever the value starts or ends with, so ".5" no longer matches inside "10.5".
