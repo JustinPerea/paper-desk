@@ -1,0 +1,42 @@
+{
+  "paper": { "arxiv_id": "2611.27106", "title": "Schema-Validated LLM Workflows: A Benchmark Protocol and Comparative Evaluation Across Six Python Implementations" },
+  "never_say": ["revolutionary", "always works"],
+  "beats": [
+    {
+      "kind": "cold_open",
+      "narration": "Your model returned perfectly valid JSON. That tells you almost nothing about whether the answer is right. New work puts a number on how far apart those two things sit.",
+      "on_screen": "Valid is not correct",
+      "number_ids": []
+    },
+    {
+      "kind": "setup",
+      "narration": "Teams use language models to extract fields, write queries and route requests. The output is parsed and stored, so a schema check feels like proof of quality. The authors argue that a parseable answer is necessary, yet it does not establish task correctness.",
+      "on_screen": "Parseable is necessary, not sufficient",
+      "number_ids": []
+    },
+    {
+      "kind": "method",
+      "narration": "They built a benchmark that scores two things separately: whether the output fits the schema, and whether it is right for the task. Five business tasks ran through six Python setups, with one shared model and an analysis plan frozen in advance. That produced a primary matrix of five thousand four hundred rows.",
+      "on_screen": "5,400 rows, six setups",
+      "number_ids": ["n4"]
+    },
+    {
+      "kind": "result",
+      "narration": "Overall schema validity came in at zero point six eight four, and mean automated quality at zero point six three eight. Three setups, PydanticAI, LangGraph and DSPy, stayed near the ceiling, with mean quality between zero point nine one and zero point nine four. The plain SDK, Agno and CrewAI landed substantially lower in this configuration.",
+      "on_screen": "0.684 schema validity, 0.638 quality, 0.91–0.94 for the top three",
+      "number_ids": ["n1", "n2", "n3"]
+    },
+    {
+      "kind": "limits",
+      "narration": "The authors are careful here. These are findings about whole system configurations, not proof that a library feature causes better quality. The tasks are synthetic, the human audit packet is still unreviewed, and the benchmark is not a security or deployment certification.",
+      "on_screen": "Synthetic tasks. Human audit unreviewed.",
+      "number_ids": []
+    },
+    {
+      "kind": "credits",
+      "narration": "This is from Sidney Shapiro and colleagues, posted on arXiv under a Creative Commons attribution license. The link is in the description.",
+      "on_screen": "Shapiro et al. 2611.27106",
+      "number_ids": []
+    }
+  ]
+}

@@ -1,0 +1,58 @@
+{
+  "paper": {
+    "title": "Schema-Validated LLM Workflows: A Benchmark Protocol and Comparative Evaluation Across Six Python Implementations",
+    "authors_as_printed": ["Sidney Shapiro", "Sanad Al-Khatib", "Aurora Pinzón Arzola", "Emiliano Sebastian Gonzalez Venegas", "Daniel Pearson"],
+    "affiliations": ["Dhillon School of Business, University of Lethbridge, Canada", "Al Hussein Technical University, Jordan", "Universidad de Guanajuato, Mexico", "Universidad de Guadalajara, Mexico"],
+    "arxiv_id": "2611.27106",
+    "version": "v1",
+    "url": "https://arxiv.org/abs/2611.27106v1",
+    "license": "http://creativecommons.org/licenses/by/4.0/",
+    "read_at": "2026-11-24T12:00:00Z",
+    "source": "html"
+  },
+  "quotes": [
+    { "id": "q1", "text": "parseable output is necessary but does not establish task correctness", "anchor": "abstract.p1", "section_title": "Abstract" },
+    { "id": "q2", "text": "overall schema validity was 0.684 and mean automated quality was 0.638", "anchor": "abstract.p3", "section_title": "Abstract" },
+    { "id": "q3", "text": "PydanticAI, LangGraph, and DSPy retained near-ceiling schema validity with mean quality 0.91–0.94, while the plain SDK, Agno, and CrewAI conditions were substantially lower", "anchor": "abstract.p3", "section_title": "Abstract" },
+    { "id": "q4", "text": "yielding a 5,400-row primary matrix with equivalence margins and Holm-adjusted contrasts against the SDK reference", "anchor": "abstract.p2", "section_title": "Abstract" },
+    { "id": "q5", "text": "Results do not generalize to long-lived agents, human-shared control, production databases, regulated decisions, or adversarial inputs.", "anchor": "S11.p5", "section_title": "Threats to Validity and Limitations" },
+    { "id": "q6", "text": "The current human-audit packet is unreviewed.", "anchor": "S11.p3", "section_title": "Threats to Validity and Limitations" },
+    { "id": "q7", "text": "primary contrasts remain system-configuration findings, not causal attributions to marketed library features", "anchor": "abstract.p3", "section_title": "Abstract" },
+    { "id": "q8", "text": "it is not a security or deployment certification", "anchor": "S11.p5", "section_title": "Threats to Validity and Limitations" }
+  ],
+  "claims": [
+    { "text": "Parseable, schema-valid output does not guarantee a correct task result, so the benchmark scores structure and task quality separately.", "quote_ids": ["q1"], "provenance": "authors" },
+    { "text": "Across the five tasks, overall schema validity was lower than most readers would assume and task quality was lower still.", "quote_ids": ["q2"], "provenance": "authors" },
+    { "text": "Three of the six implementation conditions kept near-ceiling schema validity and the highest quality; the other three scored well below them.", "quote_ids": ["q3"], "provenance": "authors" },
+    { "text": "The differences are findings about whole system configurations, not about library features in isolation.", "quote_ids": ["q7"], "provenance": "authors" },
+    { "text": "A team choosing between these libraries should compare them on its own task contracts.", "quote_ids": [], "provenance": "inference" }
+  ],
+  "numbers": [
+    { "id": "n1", "value": "0.684", "unit": "fraction of rows", "comparison": "overall schema validity across all conditions", "condition": "eligible confirmatory run", "quote_id": "q2" },
+    { "id": "n2", "value": "0.638", "unit": "score", "comparison": "mean automated quality across all conditions", "condition": "eligible confirmatory run", "quote_id": "q2" },
+    { "id": "n3", "value": "0.91–0.94", "unit": "score", "comparison": "PydanticAI, LangGraph and DSPy versus the plain SDK, Agno and CrewAI", "condition": "mean quality, this package and model configuration", "quote_id": "q3" },
+    { "id": "n4", "value": "5,400", "unit": "rows", "comparison": null, "condition": "primary confirmatory matrix", "quote_id": "q4" }
+  ],
+  "limits_authors": [
+    { "text": "Results do not generalize beyond synthetic business tasks to long-lived agents, production databases, regulated decisions or adversarial inputs.", "quote_id": "q5" },
+    { "text": "The human audit packet has not been reviewed.", "quote_id": "q6" },
+    { "text": "The benchmark is not a security or deployment certification.", "quote_id": "q8" }
+  ],
+  "likely_overclaims": ["That PydanticAI, LangGraph or DSPy cause higher quality; the authors say the contrasts are not causal attributions to library features."],
+  "named_people": ["Sidney Shapiro", "Sanad Al-Khatib", "Aurora Pinzón Arzola", "Emiliano Sebastian Gonzalez Venegas", "Daniel Pearson"],
+  "figures": [],
+  "change_for_agents": "Treat schema validation as an admission gate and add a separate task-level check; do not read a passing schema as a correct result.",
+  "compact": {
+    "claim": "Schema validity and task quality are separable: parseable output does not establish correctness, and six Python implementations differ widely under one shared contract.",
+    "method": "Five business-workflow tasks run through six Python implementation conditions with one model, a frozen analysis plan and a 5,400-row primary matrix.",
+    "results": [
+      { "finding": "0.684: overall schema validity; 0.638: mean automated quality", "location": "Abstract" },
+      { "finding": "0.91–0.94: mean quality for PydanticAI, LangGraph and DSPy", "location": "Abstract" }
+    ],
+    "limits": "Synthetic tasks, one primary model family, human audit packet unreviewed.",
+    "license": "http://creativecommons.org/licenses/by/4.0/",
+    "code_url": null,
+    "applies_to": ["structured-output", "evaluation"],
+    "depth": "full"
+  }
+}

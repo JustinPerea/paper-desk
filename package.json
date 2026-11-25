@@ -1,0 +1,22 @@
+{
+  "name": "paper-desk",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Reads one arXiv paper a night into a verified record and a short video script (eve Builder Challenge entry).",
+  "license": "Apache-2.0",
+  "type": "module",
+  "scripts": {
+    "test": "node --import tsx --test 'test/**/*.test.ts'",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "@types/node": "22.20.5",
+    "cheerio": "1.2.0",
+    "tsx": "4.23.15",
+    "typescript": "5.9.3",
+    "zod": "4.6.7"
+  }
+}
