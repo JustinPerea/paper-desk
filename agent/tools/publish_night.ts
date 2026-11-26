@@ -26,8 +26,11 @@ export default defineTool({
     const files = await gh<{ filename: string }[]>("GET", repoPath(`/pulls/${pr}/files?per_page=100`));
     const outside = files.filter((f) => !f.filename.startsWith(`nights/${night[1]}/`));
     if (outside.length) throw new Error(`PR #${pr} touches files outside nights/${night[1]}/: ${outside.map((f) => f.filename).join(", ")}`);
-    // TODO piece 4, required before the first real night: re-run the verifier on the PR's record.json and
-    // script.json here and refuse the merge on any failure. With no human gate, this is the only content check.
+    // With no human gate, the verifier re-run is the only content check. Until piece 4 wires it in here, refuse
+    // every record except the spike placeholder, so a real night can't merge unchecked.
+    const file = await gh<{ content: string }>("GET", repoPath(`/contents/nights/${night[1]}/record.json?ref=${head_sha}`));
+    const record = JSON.parse(Buffer.from(file.content, "base64").toString("utf8")) as { spike?: unknown };
+    if (record.spike !== true) throw new Error(`PR #${pr}: the verifier is not wired into publish_night yet (piece 4), so only spike records merge`);
     // `sha` makes GitHub refuse the merge if the head moved after the checks above.
     const merged = await gh<{ merged: boolean; sha: string }>("PUT", repoPath(`/pulls/${pr}/merge`), { merge_method: "squash", sha: head_sha });
     return { merged: merged.merged, sha: merged.sha };
