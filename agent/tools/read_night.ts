@@ -27,6 +27,13 @@ export default defineTool({
       base: "main",
       body: "Spike pull request: placeholder record, no paper read. Merges only after Justin approves.",
     });
-    return { pr: pr.number, url: pr.html_url, head_sha: pr.head.sha, summary: "Spike: placeholder record, nothing verified." };
+    // The spike reports verified: true so the approval and merge path runs; the PR title, body and record all say "spike".
+    return {
+      pr: pr.number,
+      url: pr.html_url,
+      head_sha: pr.head.sha,
+      verified: true,
+      summary: "Spike test: a placeholder record with no paper, marked verified so the approval and merge path can be tested.",
+    };
   },
 });
