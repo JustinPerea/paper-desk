@@ -1,5 +1,6 @@
 import { defineTool } from "eve/tools";
 import { z } from "zod";
+import { requireNightRunner } from "../lib/caller";
 import { gh, NIGHT_BRANCH, repoPath } from "../lib/github";
 
 /**
@@ -10,7 +11,8 @@ import { gh, NIGHT_BRANCH, repoPath } from "../lib/github";
 export default defineTool({
   description: "Read tonight's paper and open a pull request with the verified record. Returns the PR number and head commit.",
   inputSchema: z.object({ date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/) }),
-  async execute({ date }) {
+  async execute({ date }, ctx) {
+    requireNightRunner(ctx.session.auth.current, "read_night");
     const branch = `night/${date}`;
     if (!NIGHT_BRANCH.test(branch)) throw new Error("bad date");
     const main = await gh<{ object: { sha: string } }>("GET", repoPath("/git/ref/heads/main"));
