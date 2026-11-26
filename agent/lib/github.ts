@@ -4,6 +4,7 @@ export const OWNER = "JustinPerea";
 export const REPO = "paper-desk";
 /** Justin's GitHub user id. The only account whose comments start a turn. */
 export const JUSTIN_GITHUB_ID = 72950107;
+export const JUSTIN_PRINCIPAL_ID = `github:${JUSTIN_GITHUB_ID}`;
 /** The login GitHub gives this App. Night PRs must be opened by it. */
 export const APP_LOGIN = "paper-desk[bot]";
 

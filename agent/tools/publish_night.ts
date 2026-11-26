@@ -1,5 +1,6 @@
 import { defineTool } from "eve/tools";
 import { z } from "zod";
+import { requireNightRunner } from "../lib/caller";
 import { APP_LOGIN, gh, NIGHT_BRANCH, repoPath } from "../lib/github";
 
 /**
@@ -10,7 +11,8 @@ import { APP_LOGIN, gh, NIGHT_BRANCH, repoPath } from "../lib/github";
 export default defineTool({
   description: "Merge a night pull request once its checks pass.",
   inputSchema: z.object({ pr: z.number().int().positive(), head_sha: z.string().regex(/^[0-9a-f]{40}$/) }),
-  async execute({ pr, head_sha }) {
+  async execute({ pr, head_sha }, ctx) {
+    requireNightRunner(ctx.session.auth.current, "publish_night");
     const p = await gh<{
       state: string;
       head: { ref: string; sha: string; repo: { full_name: string } };
