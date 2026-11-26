@@ -3,8 +3,8 @@ import github from "../channels/github";
 import { gh, OWNER, REPO, repoPath } from "../lib/github";
 
 /**
- * Nightly run. A markdown schedule fails the session when a tool needs approval, so this is a handler: it opens
- * one issue for the night as the App, then starts a session on that issue. Approval replies land there.
+ * Nightly run. A handler, so it can open one issue for the night as the App and start a session on it; the
+ * agent's report lands on that issue and Justin can reply there.
  * 07:30 New York time, after the digest for the night is committed.
  */
 export default defineSchedule({

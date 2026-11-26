@@ -8,7 +8,7 @@ import { anthropic } from "eve/models/anthropic";
 export default defineAgent({
   model: anthropic("claude-sonnet-5-5"),
   // No bash, file, web or agent tools. The sandbox adds the GitHub App's auth to outbound git, so a model
-  // with bash could push past the approval gate. The only tools are read_night and publish_night.
+  // with bash could push to the repo outside publish_night's checks. The only tools are read_night and publish_night.
   defaultTools: false,
   limits: {
     // eve reports dollar cost only through AI Gateway, so on a direct key this cap counts tokens.

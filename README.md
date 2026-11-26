@@ -1,12 +1,12 @@
 # paper-desk
 
-An agent that reads one new arXiv paper each night and writes two things from it: a record of what the paper claims, with exact quotes and numbers tied to the paragraph they came from, and a script for a 60 to 110 second video about the paper. A deterministic verifier checks every quote and number against the paper's own HTML before anything is published, and a person approves each night's output.
+An agent that reads one new arXiv paper each night and writes two things from it: a record of what the paper claims, with exact quotes and numbers tied to the paragraph they came from, and a script for a 60 to 110 second video about the paper. A deterministic verifier checks every quote and number against the paper's own HTML before anything is published; a night merges only if those checks pass.
 
 This is an entry for the [eve Builder Challenge](https://eve.dev/challenge). The name is a working name.
 
 ## Status
 
-The deterministic part is built: the arXiv HTML parser, the record schema, the quote and number verifier, and the script check. No model is called yet. The eve agent (nightly schedule, reader, scriptwriter, approval and publish) comes next.
+The deterministic part is built: the arXiv HTML parser, the record schema, the quote and number verifier, and the script check. No model is called yet. The eve agent (nightly schedule, reader, scriptwriter and publish) comes next.
 
 ## Files
 
