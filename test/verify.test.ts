@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { gold, parseFixture } from "./helpers.ts";
 import { FullRecord } from "../lib/record.ts";
-import { applyVerification, containsNumber, numerals, verifyRecord } from "../lib/verify.ts";
+import { applyVerification, containsNumber, numerals, stripReported, verifyRecord } from "../lib/verify.ts";
 
 const paper = parseFixture("2611.27106");
 const base = () => FullRecord.parse(gold("2611.27106.record.json"));
@@ -288,4 +288,100 @@ test("paper metadata fields may use numerals from the parsed page, prose fields 
   });
   const key = bad.v.numeral_issues.map((i) => `${i.field}=${i.numeral}`).sort();
   assert.deepEqual(key, ["compact.claim=7", "compact.results[0].location=99"]);
+});
+
+test("stripReported removes sentences with unverified numerals so the record verifies clean", () => {
+  const r = base();
+  const keepClaim = r.compact.claim;
+  const keepChange = r.change_for_agents;
+  assert.ok(keepClaim && keepChange);
+  r.compact.claim = `${keepClaim} It also gained 97.3 points on a hidden set.`;
+  r.change_for_agents = `${keepChange} Expect a 91.7% drop in retries.`;
+  r.compact.limits = "Only 99.1 percent of cases were tested.";
+  const first = verifyRecord(r, paper);
+  assert.equal(first.all_ok, false);
+  const applied = applyVerification(r, first);
+  assert.ok(applied.reported.length >= 3);
+  const stripped = stripReported(applied.record, applied.reported);
+  assert.equal(applied.record.compact.claim, r.compact.claim, "input not mutated");
+  const second = verifyRecord(stripped, paper);
+  assert.deepEqual(second.numeral_issues, []);
+  assert.ok(second.all_ok);
+  assert.equal(stripped.compact.claim, keepClaim);
+  assert.equal(stripped.change_for_agents, keepChange);
+  assert.equal(stripped.compact.limits, null);
+});
+
+test("stripReported blanks a required string when nothing is left", () => {
+  const r = base();
+  r.compact.method = "We ran 88.8 trials.";
+  const applied = applyVerification(r, verifyRecord(r, paper));
+  const stripped = stripReported(applied.record, applied.reported);
+  assert.equal(stripped.compact.method, "");
+});
+
+test("invariant: strip(apply(gold)) verifies all_ok", () => {
+  const r = base();
+  const applied = applyVerification(r, verifyRecord(r, paper));
+  const stripped = stripReported(applied.record, applied.reported);
+  assert.deepEqual(stripped, r);
+  assert.ok(verifyRecord(stripped, paper).all_ok);
+});
+
+// --- number context must come from the quote ---
+
+test("a number's comparison and condition are grounded in its quote", () => {
+  const ok = withText(() => {});
+  assert.ok(ok.v.numbers.every((n) => n.status === "ok"));
+  // gold n3: comparison and condition use the quote's words ("conditions" matches "conditions", "mean quality" is in it)
+  assert.equal(ok.r.numbers[2]!.comparison, "PydanticAI, LangGraph and DSPy versus the plain SDK, Agno and CrewAI");
+  for (const [field, text] of [
+    ["comparison", "a stronger human baseline"],
+    ["condition", "on the hidden holdout"],
+    ["condition", "eligible confirmatory run"],
+  ] as const) {
+    const { r, v } = withText((r) => (r.numbers[1]![field] = text));
+    assert.equal(v.numbers[1]!.status, "context_not_in_quote", `${field}: ${text}`);
+    assert.equal(v.all_ok, false);
+    const { record, dropped } = applyVerification(r, v);
+    assert.ok(!record.numbers.some((n) => n.id === "n2"));
+    assert.ok(dropped.some((d) => d.kind === "number" && d.id === "n2" && d.reason === "context_not_in_quote"));
+  }
+});
+
+test("context matching: prefix of five letters, stopwords and short words are free, null and empty pass, unit is exempt", () => {
+  const pass = (f: (r: ReturnType<typeof base>) => void) => assert.equal(withText(f).v.numbers[1]!.status, "ok");
+  pass((r) => (r.numbers[1]!.condition = "overall, mean automated qualities")); // "qualities" ~ "quality"
+  pass((r) => (r.numbers[1]!.condition = "the mean quality was it"));
+  pass((r) => (r.numbers[1]!.comparison = "versus overall validity")); // "versus" is a stopword
+  pass((r) => (r.numbers[1]!.condition = ""));
+  pass((r) => (r.numbers[1]!.condition = null));
+  pass((r) => (r.numbers[1]!.unit = "invented unit words"));
+  assert.equal(withText((r) => (r.numbers[1]!.condition = "mean quarterly quality")).v.numbers[1]!.status, "context_not_in_quote", "'quarterly' shares only 'qua' with 'quality'");
+});
+
+test("a context word that shares fewer than five letters with the quote's words fails", () => {
+  assert.equal(withText((r) => (r.numbers[1]!.condition = "automatic scoring")).v.numbers[1]!.status, "context_not_in_quote");
+});
+
+// --- named_people must be on the page ---
+
+test("a named person must appear in the parsed page text", () => {
+  const { r, v } = withText((r) => r.named_people.push("Holm", "holm", "Elon Musk"));
+  assert.deepEqual(v.people.map((p) => p.status), ["ok", "ok", "not_on_page"]);
+  assert.equal(v.all_ok, false);
+  const { record, dropped } = applyVerification(r, v);
+  assert.deepEqual(record.named_people, ["Holm", "holm"]);
+  assert.ok(dropped.some((d) => d.kind === "person" && d.id === "named_people[2]" && d.reason === "not_on_page"));
+});
+
+test("a name matches only as a whole word, and an empty name fails", () => {
+  const { v } = withText((r) => r.named_people.push("Hol", "olm", " "));
+  assert.deepEqual(v.people.map((p) => p.status), ["not_on_page", "not_on_page", "not_on_page"]);
+});
+
+test("gold record has no people to check and its verification result lists none", () => {
+  const v = verifyRecord(base(), paper);
+  assert.deepEqual(v.people, []);
+  assert.ok(v.all_ok);
 });

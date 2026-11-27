@@ -41,8 +41,8 @@ export const FullRecord = z
     /** The compact fields of docs/records-contract.md, served at depth "full". */
     compact: z
       .object({
-        claim: z.string(),
-        method: z.string(),
+        claim: z.string().min(1),
+        method: z.string().min(1),
         results: z.array(z.object({ finding: z.string(), location: z.string().nullable() }).strict()),
         limits: z.string().nullable(),
         license: z.string().nullable(),

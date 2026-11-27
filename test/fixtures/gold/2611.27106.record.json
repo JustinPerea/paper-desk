@@ -28,10 +28,10 @@
     { "text": "A team choosing between these libraries should compare them on its own task contracts.", "quote_ids": [], "provenance": "inference" }
   ],
   "numbers": [
-    { "id": "n1", "value": "0.684", "unit": "fraction of rows", "comparison": "overall schema validity across all conditions", "condition": "eligible confirmatory run", "quote_id": "q2" },
-    { "id": "n2", "value": "0.638", "unit": "score", "comparison": "mean automated quality across all conditions", "condition": "eligible confirmatory run", "quote_id": "q2" },
-    { "id": "n3", "value": "0.91–0.94", "unit": "score", "comparison": "PydanticAI, LangGraph and DSPy versus the plain SDK, Agno and CrewAI", "condition": "mean quality, this package and model configuration", "quote_id": "q3" },
-    { "id": "n4", "value": "5,400", "unit": "rows", "comparison": null, "condition": "primary confirmatory matrix", "quote_id": "q4" }
+    { "id": "n1", "value": "0.684", "unit": "fraction of rows", "comparison": null, "condition": "overall schema validity", "quote_id": "q2" },
+    { "id": "n2", "value": "0.638", "unit": "score", "comparison": null, "condition": "mean automated quality", "quote_id": "q2" },
+    { "id": "n3", "value": "0.91–0.94", "unit": "score", "comparison": "PydanticAI, LangGraph and DSPy versus the plain SDK, Agno and CrewAI", "condition": "mean quality", "quote_id": "q3" },
+    { "id": "n4", "value": "5,400", "unit": "rows", "comparison": null, "condition": "primary matrix", "quote_id": "q4" }
   ],
   "limits_authors": [
     { "text": "Results do not generalize beyond synthetic business tasks to long-lived agents, production databases, regulated decisions or adversarial inputs.", "quote_id": "q5" },
@@ -39,7 +39,7 @@
     { "text": "The benchmark is not a security or deployment certification.", "quote_id": "q8" }
   ],
   "likely_overclaims": ["That PydanticAI, LangGraph or DSPy cause higher quality; the authors say the contrasts are not causal attributions to library features."],
-  "named_people": ["Sidney Shapiro", "Sanad Al-Khatib", "Aurora Pinzón Arzola", "Emiliano Sebastian Gonzalez Venegas", "Daniel Pearson"],
+  "named_people": [],
   "figures": [],
   "change_for_agents": "Treat schema validation as an admission gate and add a separate task-level check; do not read a passing schema as a correct result.",
   "compact": {

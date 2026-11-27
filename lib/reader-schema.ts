@@ -35,8 +35,8 @@ export const ReaderOutput = z.object({
         id: id.describe('Number id: "n1", "n2", ... unique within the record.'),
         value: z.string().min(1).describe("The number exactly as it is written in the quote, e.g. \"26.8%\" or \"0.68\". It must appear in the quote's text."),
         unit: z.string().describe('Unit or metric, e.g. "%", "accuracy", "ms". Empty string when none.'),
-        comparison: z.string().nullable().describe("What it is compared with (baseline, prior work), or null."),
-        condition: z.string().nullable().describe("The setting it holds in (dataset, model size), or null."),
+        comparison: z.string().nullable().describe("What it is compared with (baseline, prior work), in the quote's own words: every content word must appear in the quote, or the number is dropped. Null when the quote names no comparison."),
+        condition: z.string().nullable().describe("The setting it holds in (dataset, model size), in the quote's own words: every content word must appear in the quote, or the number is dropped. Null when the quote names none."),
         quote_id: id.describe("The quote that contains the value."),
       }),
     )
@@ -45,7 +45,7 @@ export const ReaderOutput = z.object({
     .array(z.object({ text: z.string().min(1), quote_id: id.describe("The quote where the authors state this limit.") }))
     .describe("Limits the authors themselves state."),
   likely_overclaims: z.array(z.string()).describe("Places where the paper's claim may exceed its evidence. Your judgment; contain no numerals that are not in a quote."),
-  named_people: z.array(z.string()).describe("People named in the paper's text who are not authors, spelled as printed. Empty when none."),
+  named_people: z.array(z.string()).describe("People named in the paper's text who are not authors, spelled exactly as printed there. Each name must appear word for word in the abstract, a paragraph, a table or a caption, or it is dropped. Empty when none."),
   figures: z
     .array(
       z.object({

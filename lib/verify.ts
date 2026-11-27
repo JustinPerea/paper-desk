@@ -79,13 +79,16 @@ export interface QuoteResult {
   /** For wrong_anchor: ids where the text really is (repair hint). */
   found_in?: string[];
 }
-export type NumberStatus = "ok" | "value_not_in_quote" | "quote_not_ok" | "quote_missing";
+export type NumberStatus = "ok" | "value_not_in_quote" | "quote_not_ok" | "quote_missing" | "context_not_in_quote";
+export type PersonStatus = "ok" | "not_on_page";
 export type ClaimStatus = "ok" | "inference" | "no_ok_quote";
 export interface VerifyResult {
   quotes: QuoteResult[];
   numbers: { id: string; status: NumberStatus }[];
   claims: { index: number; status: ClaimStatus }[];
   limits_authors: { index: number; status: "ok" | "quote_not_ok" | "quote_missing" }[];
+  /** named_people entries: each must appear verbatim in the parsed page text. */
+  people: { index: number; status: PersonStatus }[];
   inference_claims: number;
   /** Numerals in any string field that match no verified number or ok quote (or, for paper metadata, the page). */
   numeral_issues: NumeralIssue[];
@@ -110,6 +113,45 @@ function anchorTexts(paper: ParsedPaper): Map<string, string> {
   for (const t of paper.tables) m.set(t.id, `${t.caption}\n${t.text}`);
   for (const f of paper.figures) m.set(f.id, f.caption);
   return m;
+}
+
+/** Words too common to carry meaning: function words and comparison scaffolding ("versus", "compared"). Words that give a direction (more, less, most, over, under, above, below, before, after, without) are deliberately not here: a comparison that flips one of them must still be in the quote. */
+const CONTEXT_STOPWORDS = new Set(
+  (
+    "that this with from than then them they their there these those which while when where what were been being have does also only " +
+    "into across versus against between among each other such same both very about using used upon onto within through during compared relative relatively whose whom will would could should"
+  ).split(" "),
+);
+
+const plainWords = (s: string): string[] => normalizeText(s).normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().match(/\p{L}+/gu) ?? [];
+
+/**
+ * A number's `comparison` or `condition` must come from its quote: every content word (letters only, four or more
+ * of them, not a stopword) shares a prefix of min(length, 5) characters with some word of the quote. The prefix
+ * match lets "conditions" match "condition" and "primarily" match "primary". Null and empty are grounded.
+ */
+export function contextInQuote(context: string | null, quote: string): boolean {
+  if (!context) return true;
+  const q = plainWords(quote);
+  return plainWords(context)
+    .filter((w) => w.length >= 4 && !CONTEXT_STOPWORDS.has(w))
+    .every((w) => {
+      const k = Math.min(w.length, 5);
+      return q.some((x) => x.length >= k && x.slice(0, k) === w.slice(0, k));
+    });
+}
+
+/** Normalized page text a named person must appear in: abstract, paragraphs, tables and figure captions. */
+function pageTexts(paper: ParsedPaper): string[] {
+  return [...anchorTexts(paper).values()].map((t) => normalizeText(t).toLowerCase());
+}
+
+/** `name` verbatim (case-insensitive) in `text`, with no letter or digit touching either end. */
+function containsName(texts: string[], name: string): boolean {
+  const n = normalizeText(name).toLowerCase();
+  if (!n) return false;
+  const re = new RegExp(`(?<![\\p{L}\\p{M}\\p{N}])${n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\p{L}\\p{M}\\p{N}])`, "u");
+  return texts.some((t) => re.test(t));
 }
 
 /**
@@ -171,7 +213,9 @@ export function verifyRecord(record: FullRecord, paper: ParsedPaper): VerifyResu
     let status: NumberStatus;
     if (st === undefined) status = "quote_missing";
     else if (st !== "ok") status = "quote_not_ok";
-    else status = containsNumber(qText.get(n.quote_id)!, n.value) ? "ok" : "value_not_in_quote";
+    else if (!containsNumber(qText.get(n.quote_id)!, n.value)) status = "value_not_in_quote";
+    else if (!contextInQuote(n.comparison, qText.get(n.quote_id)!) || !contextInQuote(n.condition, qText.get(n.quote_id)!)) status = "context_not_in_quote";
+    else status = "ok";
     return { id: n.id, status };
   });
 
@@ -185,6 +229,9 @@ export function verifyRecord(record: FullRecord, paper: ParsedPaper): VerifyResu
     const st = qStatus.get(l.quote_id);
     return { index, status: st === undefined ? ("quote_missing" as const) : st === "ok" ? ("ok" as const) : ("quote_not_ok" as const) };
   });
+
+  const pages = pageTexts(paper);
+  const people = record.named_people.map((name, index) => ({ index, status: containsName(pages, name) ? ("ok" as const) : ("not_on_page" as const) }));
 
   // Numerals in free text must come from a verified number or an ok quote (years included: no carve-out).
   const allowed = new Set<string>();
@@ -215,8 +262,9 @@ export function verifyRecord(record: FullRecord, paper: ParsedPaper): VerifyResu
     quotes.every((q) => q.status === "ok") &&
     numbers.every((n) => n.status === "ok") &&
     claims.every((c) => c.status !== "no_ok_quote") &&
-    limits_authors.every((l) => l.status === "ok");
-  return { quotes, numbers, claims, limits_authors, inference_claims: claims.filter((c) => c.status === "inference").length, numeral_issues, paper_match, all_ok };
+    limits_authors.every((l) => l.status === "ok") &&
+    people.every((p) => p.status === "ok");
+  return { quotes, numbers, claims, limits_authors, people, inference_claims: claims.filter((c) => c.status === "inference").length, numeral_issues, paper_match, all_ok };
 }
 
 /** Drop what failed. A dropped quote takes its numbers and limits with it; claims lose its id from quote_ids. */
@@ -286,7 +334,13 @@ export function applyVerification(
     });
   };
   const likely_overclaims = dropEntries(record.likely_overclaims, "likely_overclaims", "overclaim", "likely_overclaims");
-  const named_people = dropEntries(record.named_people, "named_people", "person", "named_people");
+  const badNames = badAt("named_people");
+  const named_people = record.named_people.filter((_, i) => {
+    const st = result.people[i]?.status;
+    if (st !== "ok") dropped.push({ kind: "person", id: `named_people[${i}]`, reason: st ?? "not_on_page" });
+    else if (badNames.has(i)) dropped.push({ kind: "person", id: `named_people[${i}]`, reason: `unverified_numeral ${badNames.get(i)!.join(", ")}` });
+    return st === "ok" && !badNames.has(i);
+  });
   const figures = dropEntries(record.figures, "figures", "figure", "figures");
   const applies_to = dropEntries(record.compact.applies_to, "compact\\.applies_to", "applies_to", "compact.applies_to");
   const reported = result.numeral_issues.filter(
@@ -307,4 +361,32 @@ export function applyVerification(
     dropped,
     reported,
   };
+}
+
+const NULLABLE_FIELDS = new Set(["change_for_agents", "compact.limits"]);
+
+function splitSentences(s: string): string[] {
+  return s.split(/(?<=[.!?]["')\]]?)\s+/).filter((x) => x.trim() !== "");
+}
+
+/**
+ * applyVerification only reports numeral issues in single-string fields. This removes, from each reported field,
+ * every sentence that holds the reported numeral as a whole token. A field with nothing left becomes null when the
+ * schema allows it (change_for_agents, compact.limits) and "" otherwise. Returns a new record.
+ */
+export function stripReported(record: FullRecord, reported: NumeralIssue[]): FullRecord {
+  const out = structuredClone(record) as unknown as Record<string, unknown>;
+  const byField = new Map<string, string[]>();
+  for (const r of reported) byField.set(r.field, [...(byField.get(r.field) ?? []), r.numeral]);
+  for (const [field, nums] of byField) {
+    const keys = field.split(/\.|\[(\d+)\]/).filter((k): k is string => !!k).map((k) => (/^\d+$/.test(k) ? Number(k) : k));
+    let parent: any = out;
+    for (const k of keys.slice(0, -1)) parent = parent?.[k];
+    const last = keys[keys.length - 1]!;
+    const cur = parent?.[last];
+    if (typeof cur !== "string") continue;
+    const kept = splitSentences(cur).filter((sent) => !nums.some((n) => containsNumber(sent, n)));
+    parent[last] = kept.length ? kept.join(" ") : NULLABLE_FIELDS.has(field) ? null : "";
+  }
+  return out as unknown as FullRecord;
 }
