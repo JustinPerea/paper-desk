@@ -1,14 +1,13 @@
 import { parseArxivHtml } from "../../lib/arxiv-html";
-import { assembleRecord, licenseFromAbsHtml, ReaderOutput } from "../../lib/reader";
+import { licenseFromAbsHtml } from "../../lib/reader";
 import { gh, OWNER, REPO, repoPath } from "./github";
-import type { PaperRef } from "./night-steps";
+import type { PaperRef } from "./night-core";
 
 /** Plain helpers for read_night's steps. Only step bodies call them, so the workflow bundle never loads this module. */
 
 /** arXiv categories read each night, fetched in one RSS request (about 500 items, 1 MB). */
 export const CATEGORIES = ["cs.AI", "cs.CL", "cs.LG", "cs.MA"];
-/** New submissions shown to the picker, in feed order. */
-export const MAX_CANDIDATES = 60;
+export { MAX_CANDIDATES } from "./night-core";
 export const USER_AGENT = `paper-desk (https://github.com/${OWNER}/${REPO})`;
 
 export async function fetchText(url: string): Promise<{ status: number; text: string }> {
@@ -51,21 +50,6 @@ export async function parsedFor(ref: PaperRef) {
   const html = await fetchText(`https://arxiv.org/html/${ref.arxiv_id}${ref.version}`);
   if (html.status !== 200) throw new Error(`arXiv HTML ${ref.arxiv_id}${ref.version} -> ${html.status}`);
   return parseArxivHtml(html.text, { arxivId: ref.arxiv_id, version: ref.version });
-}
-
-/** Parses the model's output (stripping unknown keys) and assembles the strict record. Throws when malformed. */
-export function buildRecord(output: unknown, paper: ReturnType<typeof parseArxivHtml>, ref: PaperRef) {
-  return assembleRecord(ReaderOutput.parse(output), paper, ref);
-}
-
-/** zod issue codes and paths only, never messages, which can carry the model's own strings. */
-export function errorShape(e: unknown): string {
-  const issues = (e as { issues?: { code?: string; path?: (string | number)[] }[] })?.issues;
-  if (!Array.isArray(issues)) return "record assembly failed";
-  return issues
-    .slice(0, 8)
-    .map((i) => `${(i.path ?? []).join(".") || "(root)"}: ${i.code ?? "invalid"}`)
-    .join("; ");
 }
 
 export async function nightState(date: string): Promise<{ published: boolean; open_pr: number | null }> {

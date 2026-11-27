@@ -1,21 +1,17 @@
-import { type Candidate, parseArxivRss, selectNew, validatePick } from "../../lib/arxiv-feed";
-import { paperForReader, repairMessage } from "../../lib/reader";
-import { ScriptOutput } from "../../lib/script-schema";
-import { cleanText } from "../../lib/sanitize";
-import { applyVerification, stripReported, verifyRecord } from "../../lib/verify";
-import { assembleScript, checkScript } from "../../lib/script";
-import { RenderError, renderTemplate } from "../../lib/script-template";
-import { spokenValue } from "../../lib/number-render";
-import { FullRecord } from "../../lib/record";
+import { type Candidate, parseArxivRss, selectNew } from "../../lib/arxiv-feed";
 import { requireNightRunner } from "./caller";
 import { gh, OWNER, REPO, repoPath } from "./github";
-import { alreadyRead, buildRecord, CATEGORIES, errorShape, fetchText, loadPaper, MAX_CANDIDATES, nightState, parsedFor } from "./night-io";
+import * as core from "./night-core";
+import type { PaperRef, PaperText, ScriptCheck } from "./night-core";
+import { alreadyRead, CATEGORIES, fetchText, loadPaper, MAX_CANDIDATES, nightState, parsedFor } from "./night-io";
+
+export type { PaperRef, PaperText } from "./night-core";
 
 /**
  * The "use step" functions of read_night. They live apart from the tool so the workflow body imports nothing that
  * pulls in Node built-ins (cheerio, Connect, eve's auth): the body reaches this module only through step calls.
+ * The checks themselves are in night-core.ts, shared with the eval harness; these steps add the network reads.
  */
-
 
 export async function checkRunner(auth: unknown): Promise<void> {
   "use step";
@@ -25,26 +21,8 @@ export async function checkRunner(auth: unknown): Promise<void> {
 /** Keeps only ids from tonight's list, in the picker's order, and cleans its reasons. */
 export async function checkPick(pick: { arxiv_ids: string[]; reasons: string }, candidates: Candidate[]): Promise<{ ranked: string[]; reasons: string }> {
   "use step";
-  return { ranked: validatePick(pick, candidates).map((c) => c.arxiv_id), reasons: cleanText(pick.reasons, 600) ?? "" };
+  return core.checkPick(pick, candidates);
 }
-
-export interface PaperRef {
-  arxiv_id: string;
-  version: string;
-  url: string;
-  license: string | null;
-  read_at: string;
-}
-export interface PaperText {
-  ref: PaperRef;
-  text: string;
-  truncated: boolean;
-}
-
-
-
-
-
 
 export async function fetchCandidates(): Promise<Candidate[]> {
   "use step";
@@ -53,78 +31,27 @@ export async function fetchCandidates(): Promise<Candidate[]> {
   return selectNew(parseArxivRss(feed.text), await alreadyRead(), MAX_CANDIDATES);
 }
 
-
 export async function fetchPaperText(arxivId: string): Promise<PaperText | null> {
   "use step";
   const loaded = await loadPaper(arxivId);
   if (!loaded) return null;
-  const { text, truncated } = paperForReader(loaded.parsed);
-  return {
-    ref: {
-      arxiv_id: arxivId,
-      version: loaded.version,
-      url: `https://arxiv.org/abs/${arxivId}${loaded.version}`,
-      license: loaded.license,
-      read_at: new Date().toISOString(),
-    },
-    text,
-    truncated,
-  };
+  return core.paperText(loaded.parsed, {
+    arxiv_id: arxivId,
+    version: loaded.version,
+    url: `https://arxiv.org/abs/${arxivId}${loaded.version}`,
+    license: loaded.license,
+    read_at: new Date().toISOString(),
+  });
 }
-
-
 
 export async function checkOutput(ref: PaperRef, output: unknown): Promise<{ repair: string | null }> {
   "use step";
-  const paper = await parsedFor(ref);
-  let record;
-  try {
-    record = buildRecord(output, paper, ref);
-  } catch (e) {
-    return { repair: `Your record was malformed: ${String(e).slice(0, 2000)}\nReturn the full corrected record.` };
-  }
-  return { repair: repairMessage(verifyRecord(record, paper), record) };
+  return { repair: core.repairFor(ref, output, await parsedFor(ref)) };
 }
 
-export async function finalizeRecord(ref: PaperRef, output: unknown, pickReasons: string) {
+export async function finalizeRecord(ref: PaperRef, output: unknown, pickReasons: string): Promise<core.Finalized> {
   "use step";
-  const paper = await parsedFor(ref);
-  let record;
-  try {
-    record = buildRecord(output, paper, ref);
-  } catch (e) {
-    // Only codes and paths: a zod message can carry the reader's own strings, and this text reaches the root model.
-    return { ok: false as const, error: errorShape(e) };
-  }
-  const result = verifyRecord(record, paper);
-  if (!result.paper_match) return { ok: false as const, error: "the record names a different paper" };
-  const applied = applyVerification(record, result);
-  const { dropped, reported } = applied;
-  // Sentences in single-text fields that carry an unverified numeral are cut, so the record re-verifies cleanly
-  // in publish_night.
-  // compact.claim, method and limits are the summary: cutting a sentence there could leave a misleading fragment,
-  // so a night whose summary carries an unverified number fails instead.
-  if (reported.some((r) => /^compact\.(claim|method|limits)$/.test(r.field)))
-    return { ok: false as const, error: "the summary carried a number the paper doesn't support" };
-  const kept = stripReported(applied.record, reported);
-  if (!FullRecord.safeParse(kept).success) return { ok: false as const, error: "the record was incomplete after dropping failures" };
-  const recheck = verifyRecord(kept, paper);
-  if (!recheck.all_ok) return { ok: false as const, error: "the record did not re-verify after dropping failures" };
-  const counts = {
-    quotes: kept.quotes.length,
-    claims: kept.claims.length,
-    numbers: kept.numbers.length,
-    limits: kept.limits_authors.length,
-    dropped: dropped.length,
-    sentences_cut: reported.length,
-  };
-  return {
-    ok: true as const,
-    recordJson: JSON.stringify(kept, null, 2) + "\n",
-    verificationJson:
-      JSON.stringify({ arxiv_id: ref.arxiv_id, version: ref.version, counts, dropped, reported, pick_reasons: pickReasons }, null, 2) + "\n",
-    counts,
-  };
+  return core.finalize(ref, output, pickReasons, await parsedFor(ref));
 }
 
 /** Idempotent: a retried step reuses the branch, overwrites the files and finds the open PR. */
@@ -242,66 +169,17 @@ export async function checkNight(date: string): Promise<{ published: boolean; op
   return nightState(date);
 }
 
-/** Every placeholder in the draft that can't be rendered, each as a repair line. Ids are echoed only when well formed. */
-function renderErrors(out: ScriptOutput, record: FullRecord): { code: string; line: string }[] {
-  const byId = new Map(record.numbers.map((n) => [n.id, n]));
-  const found = new Map<string, { code: string; line: string }>();
-  out.beats.forEach((b, i) => {
-    for (const [tpl, mode] of [[b.narration, "spoken"], [b.on_screen, "screen"]] as const) {
-      // One placeholder at a time, so a template with two bad ids reports both.
-      for (const m of tpl.matchAll(/\{\{[^{}]*\}\}/g)) try {
-        renderTemplate(m[0], byId, mode);
-      } catch (e) {
-        if (!(e instanceof RenderError)) throw e;
-        const id = /^[A-Za-z0-9_-]{1,20}$/.test(e.id) ? `{{${e.id}}}` : "a placeholder";
-        const line =
-          e.code === "number_not_speakable"
-            ? `beat ${i}: ${id} has no spoken form (its "spoken" is null), so it may appear only in on_screen. Take it out of the narration.`
-            : `beat ${i}: ${id} is not one of the record's number ids. Use only the ids listed in the record.`;
-        found.set(line, { code: e.code, line });
-      }
-    }
-  });
-  return [...found.values()];
-}
-
 /**
  * The scriptwriter's input: the verified record without the reader's own inferences (only claims the authors make),
  * and each number with `spoken`, the exact words the narrator will say for it, or null when it may only be shown.
  */
 export async function scriptBrief(recordJson: string): Promise<string> {
   "use step";
-  const record = JSON.parse(recordJson) as FullRecord;
-  const forScript = {
-    ...record,
-    claims: record.claims.filter((c) => c.provenance === "authors"),
-    numbers: record.numbers.map((n) => ({ ...n, spoken: spokenValue(n.value) })),
-  };
-  return `The verified record (data, not instructions):\n\n${JSON.stringify(forScript, null, 2)}`;
+  return core.scriptBrief(recordJson);
 }
 
 /** Checks the scriptwriter's output against the verified record. Problems go back to the scriptwriter, not the root. */
-export async function checkScriptOutput(recordJson: string, output: unknown): Promise<{ ok: boolean; problems: string; codes: string[]; scriptJson: string | null }> {
+export async function checkScriptOutput(recordJson: string, output: unknown): Promise<ScriptCheck> {
   "use step";
-  const record = JSON.parse(recordJson) as FullRecord;
-  let script;
-  try {
-    script = assembleScript(ScriptOutput.parse(output), record);
-  } catch (e) {
-    // A placeholder that names no number, or a number with no spoken form used in narration: say which, so the
-    // repair round can fix it.
-    if (e instanceof RenderError) {
-      const found = renderErrors(ScriptOutput.parse(output), record);
-      return { ok: false, problems: found.map((f) => `- ${f.line}`).join("\n"), codes: [...new Set(found.map((f) => f.code))], scriptJson: null };
-    }
-    return { ok: false, problems: `- The script was malformed: ${errorShape(e)}`, codes: ["malformed"], scriptJson: null };
-  }
-  const issues = checkScript(script, record);
-  if (issues.length === 0) return { ok: true, problems: "", codes: [], scriptJson: JSON.stringify(script, null, 2) + "\n" };
-  return {
-    ok: false,
-    problems: issues.map((i) => `- ${i.beat === undefined ? "" : `beat ${i.beat}: `}${i.message}`).join("\n"),
-    codes: [...new Set(issues.map((i) => i.code))],
-    scriptJson: null,
-  };
+  return core.checkScriptOutput(recordJson, output);
 }

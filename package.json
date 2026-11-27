@@ -7,7 +7,10 @@
   "type": "module",
   "scripts": {
     "test": "node --import tsx --test 'test/**/*.test.ts'",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "eval:root": "eve eval",
+    "eval:bench": "cd harness/bench && eve eval",
+    "eval:gate": "cd harness/github-gate && eve eval"
   },
   "engines": {
     "node": ">=24"

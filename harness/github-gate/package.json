@@ -1,0 +1,8 @@
+{
+  "name": "paper-desk-github-gate",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "eve": "1.5.0"
+  }
+}
