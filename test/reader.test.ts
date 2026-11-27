@@ -111,3 +111,27 @@ test("licenseFromAbsHtml reads the abs-license link and upgrades to https", () =
   assert.equal(licenseFromAbsHtml("<html><body>no license</body></html>"), null);
   assert.equal(licenseFromAbsHtml('<div class="abs-license"><a href="javascript:alert(1)">x</a></div>'), null);
 });
+
+test("assembleRecord strips links and markup from the reader's prose", () => {
+  const o = out();
+  o.change_for_agents = "See [this guide](https://evil.example/x) <b>now</b>.";
+  o.likely_overclaims = ["<!-- hidden --> overstated", "   "];
+  const r = assembleRecord(o, paper, meta);
+  assert.equal(r.change_for_agents, "See this guide now.");
+  assert.deepEqual(r.likely_overclaims, ["overstated"]);
+});
+
+test("assembleRecord keeps a code URL only if it is https and printed in the paper", () => {
+  const o = out();
+  o.compact.code_url = "https://evil.example/not-in-paper";
+  assert.equal(assembleRecord(o, paper, meta).compact.code_url, null);
+  o.compact.code_url = "javascript:alert(1)";
+  assert.equal(assembleRecord(o, paper, meta).compact.code_url, null);
+});
+
+test("assembleRecord sets license_ok to false whatever the reader said", () => {
+  const o = out();
+  const fig = paper.figures[0]!;
+  o.figures = [{ id: fig.id, caption: fig.caption, license_ok: true }];
+  assert.equal(assembleRecord(o, paper, meta).figures[0]!.license_ok, false);
+});

@@ -4,6 +4,7 @@ import { FullRecord } from "./record.ts";
 import type { VerifyResult } from "./verify.ts";
 
 import { ReaderOutput } from "./reader-schema.ts";
+import { cleanText, LIMITS } from "./sanitize.ts";
 
 export { ReaderOutput };
 
@@ -34,9 +35,27 @@ export function assembleRecord(out: ReaderOutput, paper: ParsedPaper, meta: { ur
   for (const p of paper.paragraphs) sectionOf.set(p.id, p.section_title);
   for (const t of paper.tables) sectionOf.set(t.id, "");
   for (const f of paper.figures) sectionOf.set(f.id, "");
+  // Prose the reader wrote from attacker-controlled text: strip markup and links, cap length. Quotes and number
+  // values are left alone; the verifier checks them against the page word for word.
+  const prose = (s: string) => cleanText(s, LIMITS.long) ?? "";
+  const proseOrNull = (s: string | null) => (s == null ? null : cleanText(s, LIMITS.long));
+  const proseList = (xs: string[]) => xs.map((x) => cleanText(x, LIMITS.short)).filter((x): x is string => !!x);
   return FullRecord.parse({
     // Spread first: any field the schema does not know reaches the strict FullRecord and is rejected, not dropped.
     ...out,
+    claims: out.claims.map((c) => ({ ...c, text: prose(c.text) })).filter((c) => c.text),
+    numbers: out.numbers.map((n) => ({
+      ...n,
+      unit: cleanText(n.unit, LIMITS.short) ?? "",
+      comparison: n.comparison == null ? null : cleanText(n.comparison, LIMITS.short),
+      condition: n.condition == null ? null : cleanText(n.condition, LIMITS.short),
+    })),
+    limits_authors: out.limits_authors.map((l) => ({ ...l, text: prose(l.text) })).filter((l) => l.text),
+    likely_overclaims: proseList(out.likely_overclaims),
+    named_people: proseList(out.named_people),
+    // The program decides figure licensing, not the model.
+    figures: out.figures.map((f) => ({ ...f, caption: cleanText(f.caption, LIMITS.long) ?? "", license_ok: false })),
+    change_for_agents: proseOrNull(out.change_for_agents),
     paper: {
       title: paper.title,
       authors_as_printed: paper.authors_as_printed,
@@ -49,8 +68,35 @@ export function assembleRecord(out: ReaderOutput, paper: ParsedPaper, meta: { ur
       source: "html",
     },
     quotes: out.quotes.map((q) => ({ ...q, section_title: sectionOf.get(q.anchor) ?? "" })),
-    compact: { ...out.compact, license: meta.license, depth: "full" },
+    compact: {
+      ...out.compact,
+      claim: prose(out.compact.claim),
+      method: prose(out.compact.method),
+      results: out.compact.results
+        .map((r) => ({ finding: prose(r.finding), location: r.location == null ? null : cleanText(r.location, LIMITS.title) }))
+        .filter((r) => r.finding),
+      limits: proseOrNull(out.compact.limits),
+      applies_to: proseList(out.compact.applies_to),
+      code_url: codeUrlOnPage(out.compact.code_url, paper),
+      license: meta.license,
+      depth: "full",
+    },
   });
+}
+
+/** The reader's code link, kept only if it is https and printed somewhere in the paper's own text. */
+export function codeUrlOnPage(url: string | null, paper: ParsedPaper): string | null {
+  if (!url) return null;
+  let u: URL;
+  try {
+    u = new URL(url);
+  } catch {
+    return null;
+  }
+  if (u.protocol !== "https:") return null;
+  const bare = url.replace(/^https:\/\//, "").replace(/\/$/, "");
+  const page = [...paper.abstract, ...paper.paragraphs].map((p) => p.text).concat(paper.tables.map((x) => `${x.caption} ${x.text}`), paper.figures.map((f) => f.caption)).join("\n");
+  return page.includes(bare) ? url : null;
 }
 
 /** One repair round's message, or null when nothing failed. */
