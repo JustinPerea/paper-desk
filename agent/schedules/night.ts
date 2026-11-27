@@ -1,6 +1,7 @@
 import { defineSchedule } from "eve/schedules";
 import github from "../channels/github";
 import { gh, OWNER, REPO, repoPath } from "../lib/github";
+import { nightMessage } from "../lib/prompts";
 
 /**
  * Nightly run. A handler, so it can open one issue for the night as the App and start a session on it; the
@@ -18,7 +19,7 @@ export default defineSchedule({
     });
     waitUntil(
       to(github, { owner: OWNER, repo: REPO, issueNumber: issue.number }).send(
-        `Night ${date}. Run read_night for ${date}, then report and call publish_night as your instructions say.`,
+        nightMessage(date),
         { auth: appAuth },
       ),
     );

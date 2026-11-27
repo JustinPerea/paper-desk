@@ -1,9 +1,10 @@
 import { connectGitHubCredentials } from "@vercel/connect/eve";
+import { JUSTIN_GITHUB_ID } from "./comment-gate";
 
 export const OWNER = "JustinPerea";
 export const REPO = "paper-desk";
-/** Justin's GitHub user id. The only account whose comments start a turn. */
-export const JUSTIN_GITHUB_ID = 72950107;
+// The id lives in comment-gate.ts so the gate imports without Vercel Connect; re-exported so callers don't change.
+export { JUSTIN_GITHUB_ID };
 export const JUSTIN_PRINCIPAL_ID = `github:${JUSTIN_GITHUB_ID}`;
 /** The login GitHub gives this App. Night PRs must be opened by it. */
 export const APP_LOGIN = "paper-desk[bot]";
