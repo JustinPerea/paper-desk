@@ -1,0 +1,23 @@
+{
+  "arxiv_id": "2611.33402",
+  "version": "v1",
+  "counts": {
+    "quotes": 24,
+    "claims": 9,
+    "numbers": 9,
+    "limits": 7,
+    "dropped": 0,
+    "sentences_cut": 0
+  },
+  "dropped": [],
+  "reported": [],
+  "pick_reasons": "2611.33402 (partial routing) is the best fit for a full read. It is a concrete method for agentic workflows with numbers a viewer can follow: ViBench 70.2 to 78.5 at 19% lower cost, and Terminal-Bench pass rate 54% to 61% at similar cost. Those claims can be checked directly against the paper's tables. It is also directly useful to people building agents. The runners-up are 2611.33184 (a large negative-result study of agent-memory collapse with specific figures such as 56.9% false flags and 18% detection), 2611.33174 (deterministic agent memory evaluated on LoCoMo and LongMemEval), 2611.33318…",
+  "script": {
+    "passed": false,
+    "codes": [
+      "number_outside_placeholder",
+      "too_long"
+    ],
+    "problems": "- beat 0: narration_template: \"one\" states a number (only \"no one\", \"any one\", \"every one\", \"some one\", \"one of\" and \"one another\" are allowed)\n- beat 4: narration_template: \"one\" states a number (only \"no one\", \"any one\", \"every one\", \"some one\", \"one of\" and \"one another\" are allowed)\n- beat 4: on_screen_template: \"one\" states a number (only \"no one\", \"any one\", \"every one\", \"some one\", \"one of\" and \"one another\" are allowed)\n- estimated 124 s, maximum 110"
+  }
+}
