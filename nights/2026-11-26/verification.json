@@ -1,0 +1,15 @@
+{
+  "arxiv_id": "2611.33402",
+  "version": "v1",
+  "counts": {
+    "quotes": 23,
+    "claims": 9,
+    "numbers": 16,
+    "limits": 7,
+    "dropped": 0,
+    "sentences_cut": 0
+  },
+  "dropped": [],
+  "reported": [],
+  "pick_reasons": "2611.33402 (partial routing) wins because it describes a concrete method for agent builders: a lead model hands subtasks to a cheaper worker model, guided by measurements from past runs. It reports numbers a viewer can follow and check: ViBench 70.2 to 78.5 at 19% lower cost, and Terminal-Bench pass rate 54% to 61% at similar cost, both at δ=0.75. The runners-up are also measured and checkable. 2611.33184 is a large negative result on agent-memory collapse across 805 snapshots. 2611.33174 is an agent-memory framework scored on LoCoMo and LongMemEval. 2611.33318 studies what LLM agents must co…"
+}
