@@ -1,0 +1,99 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!-- Trimmed sample of https://rss.arxiv.org/rss/cs.AI+cs.CL fetched 2026-11-26: 6 items, unedited (the live feed had new, replace, cross and replace-cross). -->
+<rss xmlns:arxiv="http://arxiv.org/schemas/atom" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" version="2.0">
+  <channel>
+    <title>cs.AI, cs.CL updates on arXiv.org</title>
+    <link>http://rss.arxiv.org/rss/cs.AI+cs.CL</link>
+    <description>cs.AI, cs.CL updates on the arXiv.org e-print archive.</description>
+    <atom:link href="http://rss.arxiv.org/rss/cs.AI+cs.CL" rel="self" type="application/rss+xml"/>
+    <docs>http://www.rssboard.org/rss-specification</docs>
+    <language>en-us</language>
+    <lastBuildDate>Thu, 26 Nov 2026 05:03:37 +0000</lastBuildDate>
+    <managingEditor>rss-help@arxiv.org</managingEditor>
+    <pubDate>Thu, 26 Nov 2026 00:00:00 -0500</pubDate>
+    <skipDays>
+      <day>Sunday</day>
+      <day>Saturday</day>
+    </skipDays>
+    
+    <item>
+      <title>On Utilization of Edge-AI for condition monitoring towards predictive maintenance: A use case in dairy processing using explainable AI</title>
+      <link>https://arxiv.org/abs/2611.34563</link>
+      <description>arXiv:2611.34563v1 Announce Type: new 
+Abstract: The Industrial Internet of Things (IIoT) and Artificial Intelligence (AI) are driving Industry 4.0, enhancing productivity, automation, and efficiency in manufacturing systems. This study develops an Edge-AI-based condition monitoring framework, as a step towards predictive maintenance, for a rotary valve in a dairy processing pilot plant, using vibration data collected via a low-power IIoT sensor node and processed on an edge device.</description>
+      <guid isPermaLink="false">oai:arXiv.org:2611.34563v1</guid>
+      <category>cs.AI</category>
+      <category>cs.LG</category>
+      <pubDate>Thu, 26 Nov 2026 00:00:00 -0500</pubDate>
+      <arxiv:announce_type>new</arxiv:announce_type>
+      <dc:rights>http://creativecommons.org/licenses/by/4.0/</dc:rights>
+      <dc:creator>Rahul Umesh Mhapsekar, Norah O'Shea, Omer Ali, Steven Davy, Lizy Abraham</dc:creator>
+    </item>
+    <item>
+      <title>Tokenisation is not in APX</title>
+      <link>https://arxiv.org/abs/2611.34938</link>
+      <description>arXiv:2611.34938v1 Announce Type: new 
+Abstract: In this paper, we prove that, unless P=NP, no polynomial-time algorithm can find a tokeniser whose objective is within any constant factor of the optimum, meaning that tokenisation is not in the APX complexity class. We prove this for direct and bottom-up tokenisation, under both a compression or unigram log-likelihood objectives, and for binary or larger alphabets. We further show that, even over unary alphabets, direct tokenisation is APX-hard, and thus admits no polynomial-time approximation scheme.</description>
+      <guid isPermaLink="false">oai:arXiv.org:2611.34938v1</guid>
+      <category>cs.CL</category>
+      <category>cs.LG</category>
+      <pubDate>Thu, 26 Nov 2026 00:00:00 -0500</pubDate>
+      <arxiv:announce_type>new</arxiv:announce_type>
+      <dc:rights>http://creativecommons.org/licenses/by/4.0/</dc:rights>
+      <dc:creator>Violeta Kastreva, Philip Whittington, Dennis Komm, Tiago Pimentel</dc:creator>
+    </item>
+    <item>
+      <title>Multi-Party Authorization of Maintenance Prescriptions on a Permissioned Blockchain</title>
+      <link>https://arxiv.org/abs/2611.34662</link>
+      <description>arXiv:2611.34662v1 Announce Type: cross 
+Abstract: In industrial prescriptive maintenance, an equipment supplier's model may recommend an intervention that a plant schedules, a contractor executes, and a quality or safety function approves. A shared ledger records who submitted the prescription, yet cannot check whether the agreed model and decision rule produced it. We require permissioned-blockchain endorsers to verify a succinct proof of that calculation before releasing a work order. On a four-organization Hyperledger Fabric testbed using a public engine benchmark, this stopped all nine contested or mis-operated prescriptions, whereas hash checks accepted four that either raised simulated maintenance cost or reintroduced late failures.</description>
+      <guid isPermaLink="false">oai:arXiv.org:2611.34662v1</guid>
+      <category>cs.SE</category>
+      <category>cs.AI</category>
+      <pubDate>Thu, 26 Nov 2026 00:00:00 -0500</pubDate>
+      <arxiv:announce_type>cross</arxiv:announce_type>
+      <dc:rights>http://creativecommons.org/licenses/by/4.0/</dc:rights>
+      <dc:creator>Siyuan Chen, Ebru Turanoglu Bekar, Anders Skoogh</dc:creator>
+    </item>
+    <item>
+      <title>Achieving Precise Text-To-Cypher Via Grounded Knowledge Graph Data Generation</title>
+      <link>https://arxiv.org/abs/2606.14325</link>
+      <description>arXiv:2606.14325v2 Announce Type: replace 
+Abstract: Property Graphs are rapidly being adopted as database frameworks for representing heterogeneous data sources. To enable precise access to the information contained in them we need conversational interfaces based on Text-To-Cypher (Text2Cypher) parsers. This paper presents an automatic synthetic data generation method that can be leveraged to fine-tune small LLMs for this task. We conduct experiments on all the major Text-To-Cypher benchmarks, demonstrating that with our synthetic data generation approach we can significantly increase the performance of small LLMs, allowing them to compete with much larger proprietary models. This means that in settings in which models must be locally deployed we can ensure data-sovereignty without sacrificing accuracy and without costly annotation campaigns.</description>
+      <guid isPermaLink="false">oai:arXiv.org:2606.14325v2</guid>
+      <category>cs.CL</category>
+      <category>cs.AI</category>
+      <pubDate>Thu, 26 Nov 2026 00:00:00 -0500</pubDate>
+      <arxiv:announce_type>replace</arxiv:announce_type>
+      <dc:rights>http://creativecommons.org/licenses/by-sa/4.0/</dc:rights>
+      <dc:creator>Francesco Cazzaro, Jessica Lennon, Ariadna Quattoni</dc:creator>
+    </item>
+    <item>
+      <title>Explaining Chess and Go with Discovered Motifs</title>
+      <link>https://arxiv.org/abs/2610.23166</link>
+      <description>arXiv:2610.23166v2 Announce Type: replace 
+Abstract: Modern chess engines play far beyond human ability, often choosing moves whose underlying ideas are difficult for humans to understand. We propose an automatic metric for chess explanations based on how well the motifs they describe generalize to new positions. Evaluating state-of-the-art language models using this metric, we find that they perform surprisingly poorly, often relying on surface-level board observations rather than robust, transferable chess concepts. We then introduce BinProp, a training-free method that enables these same models to discover reusable chess concepts and use them to explain moves in natural language. BinProp improves motif generalization for every model tested, nearly tripling the average score compared with direct prompting. Beyond chess, the same method discovers useful concepts in Go, draughts, and shogi without additional tuning.</description>
+      <guid isPermaLink="false">oai:arXiv.org:2610.23166v2</guid>
+      <category>cs.CL</category>
+      <category>cs.AI</category>
+      <category>cs.LG</category>
+      <pubDate>Thu, 26 Nov 2026 00:00:00 -0500</pubDate>
+      <arxiv:announce_type>replace</arxiv:announce_type>
+      <dc:rights>http://creativecommons.org/licenses/by/4.0/</dc:rights>
+      <dc:creator>Ori Press, Alexander Golubev</dc:creator>
+    </item>
+    <item>
+      <title>The Transformer as a Polar State Estimator</title>
+      <link>https://arxiv.org/abs/2605.11007</link>
+      <description>arXiv:2605.11007v5 Announce Type: replace-cross 
+Abstract: We show that the core components of the Transformer---attention, residual connections, normalization, and rotary encodings---arise from a single state-estimation problem. We treat each token as a noisy reading of a rotating direction on the hypersphere, taken at its own magnitude. Estimating this direction unifies the architecture: rotational dynamics give rotary encodings, robust estimation gives attention, normalization enforces the spherical geometry, and the residual connection steps toward the estimate. This reconciles normalized queries and keys with unnormalized values as opposite assumptions on whether token magnitudes are independent or share a common scale. Finally, the \emph{Polar Transformer} restores three elements standard blocks drop: rotating values alongside keys, using key magnitudes as confidence, and stepping toward the estimate rather than adding it.</description>
+      <guid isPermaLink="false">oai:arXiv.org:2605.11007v5</guid>
+      <category>cs.LG</category>
+      <category>cs.AI</category>
+      <pubDate>Thu, 26 Nov 2026 00:00:00 -0500</pubDate>
+      <arxiv:announce_type>replace-cross</arxiv:announce_type>
+      <dc:rights>http://arxiv.org/licenses/nonexclusive-distrib/1.0/</dc:rights>
+      <dc:creator>Peter Racioppo</dc:creator>
+    </item>
+  </channel>
+</rss>
