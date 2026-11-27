@@ -1,0 +1,397 @@
+{
+  "paper": {
+    "title": "Partial Routing: Trace-Tuned Delegation for Resource-Efficient Agentic Workflows",
+    "authors_as_printed": [
+      "Siddharth Arya",
+      "Kshitij Jain"
+    ],
+    "affiliations": [],
+    "arxiv_id": "2611.33402",
+    "version": "v1",
+    "url": "https://arxiv.org/abs/2611.33402v1",
+    "license": "https://creativecommons.org/licenses/by/4.0/",
+    "read_at": "2026-11-27T01:17:40.532Z",
+    "source": "html"
+  },
+  "quotes": [
+    {
+      "id": "q1",
+      "text": "With \\delta=0.75, it raises the lead’s ViBench score from 70.2 to 78.5 at 19% lower cost, and its Terminal-Bench pass rate from 54% to 61% at similar cost.",
+      "anchor": "abstract.p1",
+      "section_title": "Abstract"
+    },
+    {
+      "id": "q2",
+      "text": "On ViBench, partial routing at \\delta=0.75 scores 78.5 at $0.67 per build, 8.3 points above the lead alone at 19% lower cost (Table 3, Figure 2).",
+      "anchor": "S5.SS2.p1",
+      "section_title": "Cost savings and quality increase"
+    },
+    {
+      "id": "q3",
+      "text": "Both task-level routers score lower at higher cost: the hindsight oracle at most 71.0 at $0.79, and Jev 60.5 at $0.72.",
+      "anchor": "S5.SS2.p1",
+      "section_title": "Cost savings and quality increase"
+    },
+    {
+      "id": "q4",
+      "text": "partial routing at \\delta=0.75 passes 60.9%, the most of any method, against 54.3% for both the lead alone and unguided delegation",
+      "anchor": "S5.SS2.p2",
+      "section_title": "Cost savings and quality increase"
+    },
+    {
+      "id": "q5",
+      "text": "our plan alone (without worker) cuts the lead’s cost by 39% on ViBench and 16% on Terminal-Bench at a similar or higher score.",
+      "anchor": "S1.p6",
+      "section_title": "Introduction"
+    },
+    {
+      "id": "q6",
+      "text": "Across four judge re-runs, quality scores vary by at most 0.3 points, far below the {\\sim}2-point gaps between the models, and every re-run reproduces all tiers at \\delta=0.75 (Appendix C).",
+      "anchor": "S5.SS1.p2",
+      "section_title": "The learned subtask profiles"
+    },
+    {
+      "id": "q7",
+      "text": "at \\delta=0.75 workers generate a third of output tokens for 8% of build cost.",
+      "anchor": "S5.SS3.p1",
+      "section_title": "Effect of \\delta on delegated work"
+    },
+    {
+      "id": "q8",
+      "text": "Profiling costs about $30 in LLM calls on ViBench.",
+      "anchor": "A1.SS0.SSS0.Px1.p1",
+      "section_title": "Models."
+    },
+    {
+      "id": "q9",
+      "text": "repeated runs show they are consistent (Section 5.1), but we did not validate them against human labels.",
+      "anchor": "Sx1.p3",
+      "section_title": "Limitations"
+    },
+    {
+      "id": "q10",
+      "text": "In every pair the worker is much cheaper and weaker than the lead, so whether the gains hold for pairs with smaller capability or price gaps is untested",
+      "anchor": "Sx1.p1",
+      "section_title": "Limitations"
+    },
+    {
+      "id": "q11",
+      "text": "Three settings were fixed throughout our experiments, and how sensitive the results are to each is still to be determined",
+      "anchor": "Sx1.p2",
+      "section_title": "Limitations"
+    },
+    {
+      "id": "q12",
+      "text": "We did not systematically check whether the lead delegated exactly the subtasks its tiers assigned",
+      "anchor": "Sx1.p4",
+      "section_title": "Limitations"
+    },
+    {
+      "id": "q13",
+      "text": "on Terminal-Bench the median task takes 69 minutes at \\delta=0.75 and 55 with unguided delegation, against 14 for the lead alone (Table 11).",
+      "anchor": "Sx1.p5",
+      "section_title": "Limitations"
+    },
+    {
+      "id": "q14",
+      "text": "unguided delegation scores 75.6 and the planned lead 68.9, against 70.2 for the lead alone",
+      "anchor": "S6.SS0.SSS0.Px2.p2",
+      "section_title": "Where does the quality gain come from?"
+    },
+    {
+      "id": "q15",
+      "text": "it passes 65.2% of tasks, against 60.9% for Kimi and 30.4% for DeepSeek alone, at 8% lower cost than Kimi.",
+      "anchor": "S5.SS2.p3",
+      "section_title": "Cost savings and quality increase"
+    },
+    {
+      "id": "q16",
+      "text": "it scores 88.2 at 37% of Sol’s cost, 5.2 points below Sol alone and 14.6 above Luna alone.",
+      "anchor": "S5.SS2.p3",
+      "section_title": "Cost savings and quality increase"
+    },
+    {
+      "id": "q17",
+      "text": "At \\delta=0.75 partial routing leads unguided delegation by 15.2 points on the profiling applications and 2.9 on the held-out ones.",
+      "anchor": "A11.p2",
+      "section_title": "Results on the Profiling Applications"
+    },
+    {
+      "id": "q18",
+      "text": "An LLM annotator identifies recurring subtasks in traces, and an LLM judge scores each model’s work on each subtask.",
+      "anchor": "S1.p5",
+      "section_title": "Introduction"
+    },
+    {
+      "id": "q19",
+      "text": "Our main results use one model pair per benchmark, on ten held-out ViBench applications (three runs each) and 23 held-out Terminal-Bench tasks (two runs each).",
+      "anchor": "Sx1.p1",
+      "section_title": "Limitations"
+    },
+    {
+      "id": "q20",
+      "text": "No weights change, so it applies to proprietary API models, and the profile can be recompiled whenever a provider updates either model.",
+      "anchor": "S6.SS0.SSS0.Px1.p1",
+      "section_title": "Deploying partial routing."
+    },
+    {
+      "id": "q21",
+      "text": "We hypothesize that the workers’ gain comes from context management",
+      "anchor": "S6.SS0.SSS0.Px2.p2",
+      "section_title": "Where does the quality gain come from?"
+    },
+    {
+      "id": "q22",
+      "text": "Ours, \\delta=0.10 | 65.4 | 0.60 | 54.3 | 0.98",
+      "anchor": "S5.T3",
+      "section_title": ""
+    },
+    {
+      "id": "q23",
+      "text": "Unguided delegation already cuts the lead’s cost by 29% and gains 5.3 points; partial routing adds 2.9 points to this for $0.08 more per build.",
+      "anchor": "S5.SS2.p1",
+      "section_title": "Cost savings and quality increase"
+    }
+  ],
+  "claims": [
+    {
+      "text": "Partial routing profiles solo traces of the lead and worker models: an LLM annotator labels recurring subtasks, and an LLM judge scores each model on each subtask, producing delegation tiers without training any model.",
+      "quote_ids": [
+        "q18",
+        "q20"
+      ],
+      "provenance": "authors"
+    },
+    {
+      "text": "On held-out ViBench at delta=0.75, partial routing scores higher than the lead alone at lower cost, and it beats both the task-level routers and unguided delegation.",
+      "quote_ids": [
+        "q1",
+        "q2",
+        "q3",
+        "q23"
+      ],
+      "provenance": "authors"
+    },
+    {
+      "text": "On held-out Terminal-Bench at delta=0.75, partial routing has the highest pass rate of any method, at about the lead's cost.",
+      "quote_ids": [
+        "q4",
+        "q1"
+      ],
+      "provenance": "authors"
+    },
+    {
+      "text": "Giving the lead only the subtask plan, with no worker, cuts cost on both benchmarks at a similar or higher score.",
+      "quote_ids": [
+        "q5",
+        "q14"
+      ],
+      "provenance": "authors"
+    },
+    {
+      "text": "The judge's quality scores and the tiers stay stable across repeated judge runs.",
+      "quote_ids": [
+        "q6"
+      ],
+      "provenance": "authors"
+    },
+    {
+      "text": "Profiling is cheap relative to training an orchestrator.",
+      "quote_ids": [
+        "q8"
+      ],
+      "provenance": "authors"
+    },
+    {
+      "text": "With a second model pair, partial routing improved the Terminal-Bench pass rate at lower cost. On ViBench it traded some score for a large cost reduction.",
+      "quote_ids": [
+        "q15",
+        "q16"
+      ],
+      "provenance": "authors"
+    },
+    {
+      "text": "A low delta can underperform the lead alone on ViBench, so the choice of delta matters.",
+      "quote_ids": [
+        "q22",
+        "q14"
+      ],
+      "provenance": "inference"
+    }
+  ],
+  "numbers": [
+    {
+      "id": "n1",
+      "value": "78.5",
+      "unit": "ViBench score",
+      "comparison": "70.2",
+      "condition": "\\delta=0.75",
+      "quote_id": "q1"
+    },
+    {
+      "id": "n2",
+      "value": "19%",
+      "unit": "% lower cost",
+      "comparison": "lead alone",
+      "condition": "ViBench, \\delta=0.75",
+      "quote_id": "q2"
+    },
+    {
+      "id": "n3",
+      "value": "60.9%",
+      "unit": "pass rate",
+      "comparison": "54.3% for both the lead alone and unguided delegation",
+      "condition": "\\delta=0.75",
+      "quote_id": "q4"
+    },
+    {
+      "id": "n4",
+      "value": "39%",
+      "unit": "% cost reduction",
+      "comparison": "lead’s cost",
+      "condition": "plan alone (without worker), ViBench",
+      "quote_id": "q5"
+    },
+    {
+      "id": "n5",
+      "value": "16%",
+      "unit": "% cost reduction",
+      "comparison": "lead’s cost",
+      "condition": "plan alone (without worker), Terminal-Bench",
+      "quote_id": "q5"
+    },
+    {
+      "id": "n6",
+      "value": "0.3",
+      "unit": "points",
+      "comparison": null,
+      "condition": "four judge re-runs",
+      "quote_id": "q6"
+    },
+    {
+      "id": "n7",
+      "value": "$30",
+      "unit": "USD",
+      "comparison": null,
+      "condition": "ViBench",
+      "quote_id": "q8"
+    },
+    {
+      "id": "n8",
+      "value": "65.2%",
+      "unit": "pass rate",
+      "comparison": "60.9% for Kimi and 30.4% for DeepSeek alone",
+      "condition": null,
+      "quote_id": "q15"
+    },
+    {
+      "id": "n9",
+      "value": "69",
+      "unit": "minutes median",
+      "comparison": "14 for the lead alone",
+      "condition": "Terminal-Bench, \\delta=0.75",
+      "quote_id": "q13"
+    },
+    {
+      "id": "n10",
+      "value": "65.4",
+      "unit": "ViBench score",
+      "comparison": null,
+      "condition": "\\delta=0.10",
+      "quote_id": "q22"
+    },
+    {
+      "id": "n11",
+      "value": "2.9",
+      "unit": "points",
+      "comparison": "unguided delegation",
+      "condition": "held-out",
+      "quote_id": "q17"
+    }
+  ],
+  "limits_authors": [
+    {
+      "text": "The main results use one model pair per benchmark and a small number of held-out tasks and runs.",
+      "quote_id": "q19"
+    },
+    {
+      "text": "It is untested whether the gains hold for model pairs with smaller capability or price gaps.",
+      "quote_id": "q10"
+    },
+    {
+      "text": "The sensitivity to rho, tau and the number of profiling tasks was not studied.",
+      "quote_id": "q11"
+    },
+    {
+      "text": "The annotator's labels and the judge's scores were not validated against human labels.",
+      "quote_id": "q9"
+    },
+    {
+      "text": "The authors did not check whether the lead actually followed its assigned tiers.",
+      "quote_id": "q12"
+    },
+    {
+      "text": "Delegation increases wall-clock time.",
+      "quote_id": "q13"
+    }
+  ],
+  "likely_overclaims": [
+    "The abstract's Terminal-Bench gain rests on a small held-out set run twice, with no significance testing. The difference amounts to only a few task outcomes.",
+    "The authors say the second-pair runs indicate the gains carry over. But they are single runs without baselines, and on ViBench partial routing scored below the lead alone.",
+    "The paper's comparison table calls the method uniquely dynamic, informed and controllable. That rests on the authors' own qualitative categorization of related work.",
+    "Attributing the worker gains to context management is a hypothesis that no experiment tests.",
+    "Results at low delta underperform the lead alone on ViBench. This weakens the framing that delta is a smooth cost–quality control."
+  ],
+  "named_people": [],
+  "figures": [
+    {
+      "id": "S3.F1",
+      "caption": "Figure 1: Partial routing. Offline, the lead and the worker each do the same tasks alone, and an LLM annotator then tags each step of their rollouts (gray) with a recurring subtask from a set \\mathcal{S}; an LLM judge scores both models on each subtask, and \\delta turns quality and cost saving into delegation tiers. Online, the lead follows this policy and briefs a fresh worker whenever it hands off a subtask. The five subtasks, their scores and their tiers at \\delta=0.40 are from Table 2.",
+      "license_ok": false
+    },
+    {
+      "id": "S5.F2",
+      "caption": "Figure 2: Cost and quality on the ten held-out ViBench applications, mean of three runs. The oracle curve sweeps \\theta with hindsight (marked point: \\theta=100, as in Table 3); the dashed line is the Pareto frontier of methods without hindsight. Higher scores and lower costs are better.",
+      "license_ok": false
+    },
+    {
+      "id": "S5.F3",
+      "caption": "Figure 3: Cost and pass rate on the 23 held-out Terminal-Bench tasks, mean of two runs per task. Both axes are broken to fit GPT-6 Luna alone. Markers, labels and the dashed frontier are as in Figure 2.",
+      "license_ok": false
+    }
+  ],
+  "change_for_agents": "Instead of training an orchestrator, agent builders can profile logged solo traces into per-subtask delegate/conditional/keep tiers and put them in the lead's prompt, then tune delta on a validation set. Even a subtask plan alone, without a worker, can cut cost.",
+  "compact": {
+    "claim": "Guiding a frontier lead to delegate profiled subtasks to a cheaper worker beats both solo models and task-level routing on cost–quality, without training any model.",
+    "method": "An LLM annotator labels recurring subtasks in solo traces of the lead and worker, and an LLM judge scores each model per subtask. Savings and risk are combined with a parameter delta into delegate/conditional/keep tiers that go in the lead's prompt.",
+    "results": [
+      {
+        "finding": "On ViBench at delta=0.75, the score rises from 70.2 to 78.5 at 19% lower cost.",
+        "location": "S5.T3"
+      },
+      {
+        "finding": "On Terminal-Bench at delta=0.75, the pass rate is 60.9% against 54.3% for the lead alone and for unguided delegation.",
+        "location": "S5.T3"
+      },
+      {
+        "finding": "The plan alone cuts the lead's cost by 39% on ViBench and 16% on Terminal-Bench.",
+        "location": "S1.p6"
+      },
+      {
+        "finding": "Across four judge re-runs, quality scores vary by at most 0.3 points.",
+        "location": "S5.SS1.p2"
+      }
+    ],
+    "limits": "Results come from one model pair per benchmark with few held-out tasks and runs, and the LLM judge was not validated against human labels.",
+    "license": "https://creativecommons.org/licenses/by/4.0/",
+    "code_url": null,
+    "applies_to": [
+      "model routing",
+      "multi-agent delegation",
+      "coding agents",
+      "cost optimization",
+      "LLM-as-judge"
+    ],
+    "depth": "full"
+  }
+}

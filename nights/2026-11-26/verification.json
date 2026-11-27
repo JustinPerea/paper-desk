@@ -1,0 +1,20 @@
+{
+  "arxiv_id": "2611.33402",
+  "version": "v1",
+  "counts": {
+    "quotes": 23,
+    "claims": 8,
+    "numbers": 11,
+    "limits": 6,
+    "dropped": 0,
+    "sentences_cut": 0
+  },
+  "dropped": [],
+  "reported": [],
+  "pick_reasons": "2611.33402 (partial routing) is the best fit for a careful read. It describes a concrete method for LLM agent workflows, with a lead model delegating subtasks to a cheaper worker. Its numbers are easy to follow and to check against the text: ViBench 70.2 to 78.5 at 19% lower cost, and Terminal-Bench pass rate 54% to 61% at similar cost. It is also directly useful to people building agents. The runners-up are 2611.33184 (a preregistered negative result on agent-memory collapse, with 805 snapshots and specific false-flag and detection rates), 2611.33174 (deterministic agent memory on LoCoMo and…",
+  "script": {
+    "passed": true,
+    "codes": [],
+    "problems": ""
+  }
+}

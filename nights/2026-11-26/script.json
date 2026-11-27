@@ -1,0 +1,75 @@
+{
+  "beats": [
+    {
+      "kind": "cold_open",
+      "narration": "Letting a frontier model hand selected subtasks to a cheaper worker scored higher than the frontier model alone on ViBench, at lower cost. The caveat: the evidence comes from a single model pairing per benchmark and small held-out sets.",
+      "on_screen": "Delegating subtasks: better score, lower cost, thin evidence",
+      "narration_template": "Letting a frontier model hand selected subtasks to a cheaper worker scored higher than the frontier model alone on ViBench, at lower cost. The caveat: the evidence comes from a single model pairing per benchmark and small held-out sets.",
+      "on_screen_template": "Delegating subtasks: better score, lower cost, thin evidence",
+      "number_ids": []
+    },
+    {
+      "kind": "setup",
+      "narration": "Running a frontier agent on every step is expensive. This paper asks whether the lead can delegate only the parts where a weaker worker is good enough, without training an orchestrator.",
+      "on_screen": "Route parts of a task, not the whole task",
+      "narration_template": "Running a frontier agent on every step is expensive. This paper asks whether the lead can delegate only the parts where a weaker worker is good enough, without training an orchestrator.",
+      "on_screen_template": "Route parts of a task, not the whole task",
+      "number_ids": []
+    },
+    {
+      "kind": "method",
+      "narration": "Offline, the lead and worker each solve tasks alone. An LLM annotator labels recurring subtasks in those traces, and an LLM judge scores each model on each subtask. A parameter called delta turns quality and cost savings into delegate, conditional or keep tiers, which go into the lead's prompt.",
+      "on_screen": "Annotate traces, judge subtasks, set tiers with delta. Profiling cost about $30",
+      "narration_template": "Offline, the lead and worker each solve tasks alone. An LLM annotator labels recurring subtasks in those traces, and an LLM judge scores each model on each subtask. A parameter called delta turns quality and cost savings into delegate, conditional or keep tiers, which go into the lead's prompt.",
+      "on_screen_template": "Annotate traces, judge subtasks, set tiers with delta. Profiling cost about {{n7}}",
+      "number_ids": [
+        "n7"
+      ]
+    },
+    {
+      "kind": "result",
+      "narration": "At the main delta setting, the ViBench score rose to seventy-eight point five at nineteen percent lower cost than the lead alone. On Terminal-Bench the pass rate was sixty point nine percent, the highest of any method. The plan alone, with no worker, cut the lead's cost by thirty-nine percent on ViBench and sixteen percent on Terminal-Bench.",
+      "on_screen": "ViBench 78.5 at 19% lower cost. Terminal-Bench pass rate 60.9%",
+      "narration_template": "At the main delta setting, the ViBench score rose to {{n1}} at {{n2}} lower cost than the lead alone. On Terminal-Bench the pass rate was {{n3}}, the highest of any method. The plan alone, with no worker, cut the lead's cost by {{n4}} on ViBench and {{n5}} on Terminal-Bench.",
+      "on_screen_template": "ViBench {{n1}} at {{n2}} lower cost. Terminal-Bench pass rate {{n3}}",
+      "number_ids": [
+        "n1",
+        "n2",
+        "n3",
+        "n4",
+        "n5"
+      ]
+    },
+    {
+      "kind": "limits",
+      "narration": "The Terminal-Bench gain rests on a small held-out set with no significance testing, so it amounts to a few task outcomes. Whether it holds for model pairs with smaller gaps is untested, and the judge was not validated against human labels. Delegation also adds time: the median Terminal-Bench task took sixty-nine minutes.",
+      "on_screen": "Small test sets, no human validation, slower runs: median 69 minutes",
+      "narration_template": "The Terminal-Bench gain rests on a small held-out set with no significance testing, so it amounts to a few task outcomes. Whether it holds for model pairs with smaller gaps is untested, and the judge was not validated against human labels. Delegation also adds time: the median Terminal-Bench task took {{n9}} minutes.",
+      "on_screen_template": "Small test sets, no human validation, slower runs: median {{n9}} minutes",
+      "number_ids": [
+        "n9"
+      ]
+    },
+    {
+      "kind": "credits",
+      "narration": "The paper is Partial Routing: Trace-Tuned Delegation for Resource-Efficient Agentic Workflows, by Siddharth Arya and Kshitij Jain.",
+      "on_screen": "Partial Routing, by Siddharth Arya and Kshitij Jain",
+      "narration_template": "The paper is Partial Routing: Trace-Tuned Delegation for Resource-Efficient Agentic Workflows, by Siddharth Arya and Kshitij Jain.",
+      "on_screen_template": "Partial Routing, by Siddharth Arya and Kshitij Jain",
+      "number_ids": []
+    }
+  ],
+  "never_say": [
+    "solved",
+    "proved",
+    "breakthrough",
+    "game-changer",
+    "guaranteed",
+    "always works",
+    "smooth cost-quality control"
+  ],
+  "paper": {
+    "arxiv_id": "2611.33402",
+    "title": "Partial Routing: Trace-Tuned Delegation for Resource-Efficient Agentic Workflows"
+  }
+}
