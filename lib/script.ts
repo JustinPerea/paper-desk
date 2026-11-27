@@ -145,8 +145,14 @@ export function checkScript(script: Script, verified: FullRecord): ScriptIssue[]
   });
 
   const secs = estimateSeconds(script);
-  if (secs < DURATION_RANGE[0]) issues.push({ code: "too_short", message: `estimated ${secs.toFixed(0)} s, minimum ${DURATION_RANGE[0]}` });
-  if (secs > DURATION_RANGE[1]) issues.push({ code: "too_long", message: `estimated ${secs.toFixed(0)} s, maximum ${DURATION_RANGE[1]}` });
+  // In words, because that is what the scriptwriter can count; numbers count as their spoken form ("zero point six
+  // eight four" is five words), not as one placeholder.
+  const words = Math.round(secs * WORDS_PER_SECOND);
+  const [minWords, maxWords] = DURATION_RANGE.map((x) => x * WORDS_PER_SECOND) as [number, number];
+  if (secs < DURATION_RANGE[0])
+    issues.push({ code: "too_short", message: `narration is ${words} words with numbers spoken in full (about ${secs.toFixed(0)} s); the minimum is ${minWords} words (${DURATION_RANGE[0]} s), so add at least ${minWords - words}` });
+  if (secs > DURATION_RANGE[1])
+    issues.push({ code: "too_long", message: `narration is ${words} words with numbers spoken in full (about ${secs.toFixed(0)} s); the maximum is ${maxWords} words (${DURATION_RANGE[1]} s), so cut at least ${words - maxWords}` });
   return issues;
 }
 

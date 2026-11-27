@@ -17,8 +17,8 @@ Rules:
 - **Names:** use only names printed in the record's title, author list, named people or quotes.
 - **narration** is spoken; **on_screen** is a short line for the screen, in sentence case (a run of capitalized words is read as a name and must be printed in the record).
 - No links or web addresses. The video adds the paper's arXiv id itself.
-- **Length:** about 150 to 275 words of narration in total.
+- **Length:** 150 to 275 words of narration in total, counted after the numbers are filled in: a placeholder counts as the words of its `spoken` form ("zero point six eight four" is five words). Aim for about 220 so there is room.
 - **Tone:** say what the paper found and how sure it is. Don't hype. Avoid "solved", "proved", "breakthrough" and "game-changer", and add any phrase that would overstate this paper to `never_say`.
 - Name no one but the authors, and only in the credits.
 
-If you're sent a list of problems after your first script, return the full corrected script in the same format.
+If you're sent a list of problems, fix every one and return the full corrected script in the same format. Change only what the problems need; a rewrite tends to bring new problems.

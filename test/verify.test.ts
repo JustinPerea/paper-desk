@@ -383,7 +383,7 @@ test("context words match on a stem, not a loose five-letter prefix", () => {
   assert.ok(contextInQuote("improvement", "they improve recall"));
   assert.equal(contextInQuote("supervised", "unsupervised training"), false);
   // Stems under five letters must be the same word, or differ by a plural ending.
-  for (const [c, q] of [["normal training", "norm"], ["causal effect", "cause"], ["formal proof", "form"], ["mental", "mention"], ["the verse model", "version"]]) {
+  for (const [c, q] of [["normal training", "norm"], ["causal effect", "cause"], ["formal proof", "form"], ["mental", "mention"], ["the verse model", "version"]] as const) {
     assert.equal(contextInQuote(c, q), false, `${c} / ${q}`);
   }
   assert.ok(contextInQuote("error rates", "the error rate"));

@@ -9,16 +9,20 @@ import {
   checkScriptOutput,
   checkPick,
   checkRunner,
+  claimNight,
   fetchCandidates,
   fetchPaperText,
   finalizeRecord,
   openNightPr,
+  releaseNight,
   scriptBrief,
   type PaperText,
 } from "../lib/night-steps";
 
 /** How many of the picker's ranked papers to try before giving up (a paper may have no HTML). */
 const TRY_PAPERS = 3;
+/** Repair rounds for the script after its first draft. Sonnet is cheap next to the reader; a failed script costs the night. */
+const SCRIPT_REPAIRS = 2;
 
 const Pick = z.object({
   arxiv_ids: z.array(z.string()).max(5).describe("Up to five candidate ids, best first, only from the list."),
@@ -48,6 +52,17 @@ export default defineWorkflowTool({
     const night = await checkNight(date);
     if (night.published) return nothingTonight(`Night ${date} is already published.`);
     if (night.open_pr !== null && !arxiv_id) return nothingTonight(`Night ${date} already has PR #${night.open_pr} open.`);
+    // A scheduled run claims the night's branch first, so two runs for one date can't write over each other. A rerun
+    // Justin asks for (arxiv_id) reuses the branch.
+    let claimed: string | null = null;
+    if (!arxiv_id) {
+      claimed = await claimNight(date);
+      if (claimed === null) return nothingTonight(`Night ${date} already has a branch, from another run or a failed one. Delete night/${date} or name a paper to rerun.`);
+    }
+    const stop = async (summary: string) => {
+      if (claimed !== null) await releaseNight(date, claimed);
+      return nothingTonight(summary);
+    };
 
     // 1. Candidates and the pick.
     let ranked: string[];
@@ -57,13 +72,13 @@ export default defineWorkflowTool({
       pickReasons = "Named by Justin.";
     } else {
       const candidates = await fetchCandidates();
-      if (candidates.length === 0) return nothingTonight("arXiv's feed has no new, unread papers tonight.");
+      if (candidates.length === 0) return await stop("arXiv's feed has no new, unread papers tonight.");
       const picker = ctx.agent("picker");
       const picked = await (await picker.send(pickerPrompt(candidates), { outputSchema: Pick, signal: ctx.abortSignal })).result();
-      if (picked.status !== "completed" || !picked.data) return nothingTonight(`The picker didn't finish (${picked.status}).`);
+      if (picked.status !== "completed" || !picked.data) return await stop(`The picker didn't finish (${picked.status}).`);
       const checked = await checkPick(picked.data as Pick, candidates);
       ranked = checked.ranked;
-      if (ranked.length === 0) return nothingTonight("The picker returned no id from tonight's list.");
+      if (ranked.length === 0) return await stop("The picker returned no id from tonight's list.");
       pickReasons = checked.reasons;
     }
 
@@ -73,12 +88,12 @@ export default defineWorkflowTool({
       paper = await fetchPaperText(id);
       if (paper) break;
     }
-    if (!paper) return nothingTonight(`No arXiv HTML for ${ranked.slice(0, TRY_PAPERS).join(", ")}.`);
+    if (!paper) return await stop(`No arXiv HTML for ${ranked.slice(0, TRY_PAPERS).join(", ")}.`);
 
     // 3. The reader, then one repair round if the verifier finds failures.
     const reader = ctx.agent("reader");
     const first = await (await reader.send(readerPrompt(paper), { outputSchema: ReaderOutput, signal: ctx.abortSignal })).result();
-    if (first.status !== "completed" || !first.data) return nothingTonight(`The reader didn't finish (${first.status}).`);
+    if (first.status !== "completed" || !first.data) return await stop(`The reader didn't finish (${first.status}).`);
     let output: unknown = first.data;
     const check = await checkOutput(paper.ref, output);
     if (check.repair) {
@@ -88,8 +103,8 @@ export default defineWorkflowTool({
 
     // 4. Verify, drop failures, and open the PR.
     const final = await finalizeRecord(paper.ref, output, pickReasons);
-    if (!final.ok) return nothingTonight(`The record was malformed: ${final.error}`);
-    if (final.counts.quotes === 0) return nothingTonight(`Nothing in the reader's record for ${paper.ref.arxiv_id} verified.`);
+    if (!final.ok) return await stop(`The record was malformed: ${final.error}`);
+    if (final.counts.quotes === 0) return await stop(`Nothing in the reader's record for ${paper.ref.arxiv_id} verified.`);
     // 5. The script, from the verified record only, with one repair round.
     const writer = ctx.agent("scriptwriter");
     let script = { ok: false, problems: "", codes: ["not_run"], scriptJson: null as string | null };
@@ -97,9 +112,10 @@ export default defineWorkflowTool({
     const draft = await (await writer.send(brief, { outputSchema: ScriptOutput, signal: ctx.abortSignal })).result();
     if (draft.status === "completed" && draft.data) {
       script = await checkScriptOutput(final.recordJson, draft.data);
-      if (!script.ok) {
+      for (let round = 0; round < SCRIPT_REPAIRS && !script.ok; round++) {
         const fixed = await (await writer.send(`Problems found:\n${script.problems}\nReturn the full corrected script.`, { outputSchema: ScriptOutput, signal: ctx.abortSignal })).result();
-        if (fixed.status === "completed" && fixed.data) script = await checkScriptOutput(final.recordJson, fixed.data);
+        if (fixed.status !== "completed" || !fixed.data) break;
+        script = await checkScriptOutput(final.recordJson, fixed.data);
       }
     }
 
