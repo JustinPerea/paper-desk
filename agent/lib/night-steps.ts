@@ -4,7 +4,7 @@ import { ScriptOutput } from "../../lib/script-schema";
 import { cleanText } from "../../lib/sanitize";
 import { applyVerification, stripReported, verifyRecord } from "../../lib/verify";
 import { assembleScript, checkScript } from "../../lib/script";
-import type { FullRecord } from "../../lib/record";
+import { FullRecord } from "../../lib/record";
 import { requireNightRunner } from "./caller";
 import { gh, OWNER, REPO, repoPath } from "./github";
 import { alreadyRead, buildRecord, CATEGORIES, errorShape, fetchText, loadPaper, MAX_CANDIDATES, nightState, parsedFor } from "./night-io";
@@ -100,7 +100,12 @@ export async function finalizeRecord(ref: PaperRef, output: unknown, pickReasons
   const { dropped, reported } = applied;
   // Sentences in single-text fields that carry an unverified numeral are cut, so the record re-verifies cleanly
   // in publish_night.
+  // compact.claim, method and limits are the summary: cutting a sentence there could leave a misleading fragment,
+  // so a night whose summary carries an unverified number fails instead.
+  if (reported.some((r) => /^compact\.(claim|method|limits)$/.test(r.field)))
+    return { ok: false as const, error: "the summary carried a number the paper doesn't support" };
   const kept = stripReported(applied.record, reported);
+  if (!FullRecord.safeParse(kept).success) return { ok: false as const, error: "the record was incomplete after dropping failures" };
   const recheck = verifyRecord(kept, paper);
   if (!recheck.all_ok) return { ok: false as const, error: "the record did not re-verify after dropping failures" };
   const counts = {

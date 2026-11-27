@@ -13,7 +13,7 @@ The deterministic part is built: the arXiv HTML parser, the record schema, the q
 - `lib/arxiv-html.ts` parses an arXiv HTML page (LaTeXML) into the abstract, sections, paragraphs, tables and figure captions, each with the id arXiv gives it (`S3.p2`, `S4.T1`). Those ids are the anchors quotes point to.
 - `lib/record.ts` is the record schema. Every quote has an anchor; every number names its unit, what it is compared with, under what condition, and the quote it comes from; every claim says whether the authors made it or it is an inference.
 - `lib/verify.ts` checks a record against the parsed paper. A quote must appear at its anchor; a number must appear in its quote; any numeral in free text must come from a verified number or quote. Whatever fails is dropped and listed.
-- `lib/script.ts` is the video script schema and its check: five or six beats, numbers spoken in words and shown exactly on screen, and only numbers the record verified.
+- `lib/script.ts` is the video script schema and its check: five or six beats written as templates. Numbers appear only as `{{id}}` placeholders that name a verified record number; code renders them as words for narration and as printed on screen, and the check rejects any other number, number word, name or link.
 - `lib/sanitize.ts` strips markup, caps lengths, keeps only http(s) URLs, and flags text that reads like an instruction to an agent. It does not make paper text trustworthy; it makes suspect text visible.
 
 ## Run

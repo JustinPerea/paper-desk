@@ -73,3 +73,17 @@ test("words that merely contain a number word do not match", () => {
   assert.deepEqual(say("weight eighty-one"), ["81"]);
   assert.deepEqual(say("tenant fortune seventyish"), []);
 });
+
+test("a scale word after a decimal scales it", () => {
+  assert.deepEqual(say("one point two billion"), ["1200000000"]);
+  assert.deepEqual(say("zero point five million"), ["500000"]);
+  assert.deepEqual(say("twelve point five thousand"), ["12500"]);
+  assert.deepEqual(say("one point two"), ["1.2"]);
+});
+
+test("invisible characters and non-breaking hyphens do not hide or split a number", () => {
+  assert.deepEqual(say("fo​rty two"), ["42"]);
+  assert.deepEqual(say("for­ty"), ["40"]);
+  assert.deepEqual(say("twenty‑one"), ["21"]);
+  assert.deepEqual(say("seventy‐eight percent"), ["78"]);
+});

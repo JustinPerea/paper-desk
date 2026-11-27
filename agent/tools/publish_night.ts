@@ -9,8 +9,8 @@ import { checkNight } from "../lib/publish-check";
  * 2026-11-26): the merge happens only when the deterministic checks below pass, so the model can't publish
  * anything else. Justin reviews nights after they land and can revert one.
  */
-/** The only files a night PR may change. The script and video join in pieces 4 and 7. */
-const NIGHT_FILES = ["record.json", "verification.json", "script.json", "video.mp4"];
+/** The only files a night PR may change. video.mp4 joins in piece 7, together with a check that binds it to script.json. */
+const NIGHT_FILES = ["record.json", "verification.json", "script.json"];
 
 export default defineTool({
   description: "Merge a night pull request once its checks pass.",

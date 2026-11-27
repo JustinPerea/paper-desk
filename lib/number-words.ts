@@ -1,4 +1,5 @@
-import { numerals } from "./verify.ts";
+import { normalizeText, numerals } from "./verify.ts";
+import { shiftDecimal } from "./number-render.ts";
 
 const UNITS: Record<string, number> = {
   zero: 0, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, eleven: 11,
@@ -12,12 +13,15 @@ const isNumberWord = (w: string | undefined): boolean =>
 /**
  * Every number a narrator would say, as numeral strings in the form numerals() produces: digits already in the
  * text plus English number words ("seventy-eight" -> "78", "zero point seven five" -> "0.75", "a hundred" -> "100").
- * Whole words only; ordinals and fractions ("third", "half") are not numbers here; "percent" does not change a value.
+ * Whole words only; a scale word after a decimal ("one point two billion") scales it. Ordinals and fractions ("third", "half") are not numbers here; "percent" does not change a value.
  */
-export function spokenNumbers(text: string): string[] {
+export function spokenNumbers(textIn: string): string[] {
+  // Format characters (zero-width space and joiners, soft hyphen) are invisible but split or hide words; drop them.
+  // normalizeText folds every dash to "-", so a non-breaking hyphen cannot split "twenty-one".
+  const text = normalizeText(textIn.replace(/[\p{Cf}\u00AD]/gu, ""));
   const out = numerals(text);
   // Words, plus single punctuation/digit marks that break a number; hyphens and spaces join.
-  const toks = text.toLowerCase().normalize("NFKC").match(/[a-z]+|[^a-z\s-]/g) ?? [];
+  const toks = text.toLowerCase().match(/[a-z]+|[^a-z\s-]/g) ?? [];
   let i = 0;
   while (i < toks.length) {
     const start = i;
@@ -65,6 +69,8 @@ export function spokenNumbers(text: string): string[] {
       let frac = "";
       while (j < toks.length && toks[j]! in UNITS && UNITS[toks[j]!]! <= 9) frac += UNITS[toks[j++]!];
       if (frac) { value += "." + frac; i = j; }
+      // "one point two billion": the scale applies to the decimal ("1.2" -> "1200000000").
+      if (frac && toks[i]! in SCALES) { value = shiftDecimal(value, Math.log10(SCALES[toks[i]!]!)); i++; }
     }
     out.push(value);
   }

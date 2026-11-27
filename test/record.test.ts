@@ -47,3 +47,12 @@ test("schema rejects dangling quote references", () => {
     assert.equal(FullRecord.safeParse(r).success, false);
   }
 });
+
+test("compact.claim and compact.method may not be empty", () => {
+  const r = gold("2611.27106.record.json");
+  r.compact.claim = "";
+  assert.equal(FullRecord.safeParse(r).success, false);
+  const r2 = gold("2611.27106.record.json");
+  r2.compact.method = "";
+  assert.equal(FullRecord.safeParse(r2).success, false);
+});

@@ -327,3 +327,61 @@ test("invariant: strip(apply(gold)) verifies all_ok", () => {
   assert.deepEqual(stripped, r);
   assert.ok(verifyRecord(stripped, paper).all_ok);
 });
+
+// --- number context must come from the quote ---
+
+test("a number's comparison and condition are grounded in its quote", () => {
+  const ok = withText(() => {});
+  assert.ok(ok.v.numbers.every((n) => n.status === "ok"));
+  // gold n3: comparison and condition use the quote's words ("conditions" matches "conditions", "mean quality" is in it)
+  assert.equal(ok.r.numbers[2]!.comparison, "PydanticAI, LangGraph and DSPy versus the plain SDK, Agno and CrewAI");
+  for (const [field, text] of [
+    ["comparison", "a stronger human baseline"],
+    ["condition", "on the hidden holdout"],
+    ["condition", "eligible confirmatory run"],
+  ] as const) {
+    const { r, v } = withText((r) => (r.numbers[1]![field] = text));
+    assert.equal(v.numbers[1]!.status, "context_not_in_quote", `${field}: ${text}`);
+    assert.equal(v.all_ok, false);
+    const { record, dropped } = applyVerification(r, v);
+    assert.ok(!record.numbers.some((n) => n.id === "n2"));
+    assert.ok(dropped.some((d) => d.kind === "number" && d.id === "n2" && d.reason === "context_not_in_quote"));
+  }
+});
+
+test("context matching: prefix of five letters, stopwords and short words are free, null and empty pass, unit is exempt", () => {
+  const pass = (f: (r: ReturnType<typeof base>) => void) => assert.equal(withText(f).v.numbers[1]!.status, "ok");
+  pass((r) => (r.numbers[1]!.condition = "overall, mean automated qualities")); // "qualities" ~ "quality"
+  pass((r) => (r.numbers[1]!.condition = "the mean quality was it"));
+  pass((r) => (r.numbers[1]!.comparison = "versus overall validity")); // "versus" is a stopword
+  pass((r) => (r.numbers[1]!.condition = ""));
+  pass((r) => (r.numbers[1]!.condition = null));
+  pass((r) => (r.numbers[1]!.unit = "invented unit words"));
+  assert.equal(withText((r) => (r.numbers[1]!.condition = "mean quarterly quality")).v.numbers[1]!.status, "context_not_in_quote", "'quarterly' shares only 'qua' with 'quality'");
+});
+
+test("a context word that shares fewer than five letters with the quote's words fails", () => {
+  assert.equal(withText((r) => (r.numbers[1]!.condition = "automatic scoring")).v.numbers[1]!.status, "context_not_in_quote");
+});
+
+// --- named_people must be on the page ---
+
+test("a named person must appear in the parsed page text", () => {
+  const { r, v } = withText((r) => r.named_people.push("Holm", "holm", "Elon Musk"));
+  assert.deepEqual(v.people.map((p) => p.status), ["ok", "ok", "not_on_page"]);
+  assert.equal(v.all_ok, false);
+  const { record, dropped } = applyVerification(r, v);
+  assert.deepEqual(record.named_people, ["Holm", "holm"]);
+  assert.ok(dropped.some((d) => d.kind === "person" && d.id === "named_people[2]" && d.reason === "not_on_page"));
+});
+
+test("a name matches only as a whole word, and an empty name fails", () => {
+  const { v } = withText((r) => r.named_people.push("Hol", "olm", " "));
+  assert.deepEqual(v.people.map((p) => p.status), ["not_on_page", "not_on_page", "not_on_page"]);
+});
+
+test("gold record has no people to check and its verification result lists none", () => {
+  const v = verifyRecord(base(), paper);
+  assert.deepEqual(v.people, []);
+  assert.ok(v.all_ok);
+});

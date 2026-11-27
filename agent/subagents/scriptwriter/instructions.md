@@ -11,9 +11,11 @@ Beats, in this order:
 6. **credits** (optional): the title and the authors.
 
 Rules:
-- **Narration is spoken.** Write numbers as words ("seventy-eight point five", "nineteen percent"), never digits. Every number you say must be one of the record's verified numbers; small counts up to ten are fine.
-- **on_screen** is a short line for the screen. It may show verified numbers as digits, exactly as the record has them.
-- **number_ids** lists the ids of the record numbers each beat uses.
+- **Numbers only as placeholders.** Wherever a number goes, in narration or on screen, write `{{id}}` with the id of one of the record's numbers, for example "the score rose to {{n2}}". The program fills in the exact value: spoken in words for narration, as printed for the screen. Write no other numbers at all: no digits, no number words ("seven", "twenty"), no fractions or multipliers ("half", "double", "twice"), no "percent" outside a placeholder. If a sentence needs a count that isn't in the record, rephrase it without one ("a few", "several", "both").
+- Use a number only where its meaning matches the record: check its unit, what it's compared with, and the condition it was measured under.
+- **Names:** use only names printed in the record's title, author list, named people or quotes.
+- **narration** is spoken; **on_screen** is a short line for the screen, in sentence case (a run of capitalized words is read as a name and must be printed in the record).
+- No links or web addresses. The video adds the paper's arXiv id itself.
 - **Length:** about 150 to 275 words of narration in total.
 - **Tone:** say what the paper found and how sure it is. Don't hype. Avoid "solved", "proved", "breakthrough" and "game-changer", and add any phrase that would overstate this paper to `never_say`.
 - Name no one but the authors, and only in the credits.
