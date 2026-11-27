@@ -4,6 +4,8 @@ import { ScriptOutput } from "../../lib/script-schema";
 import { cleanText } from "../../lib/sanitize";
 import { applyVerification, stripReported, verifyRecord } from "../../lib/verify";
 import { assembleScript, checkScript } from "../../lib/script";
+import { RenderError, renderTemplate } from "../../lib/script-template";
+import { spokenValue } from "../../lib/number-render";
 import { FullRecord } from "../../lib/record";
 import { requireNightRunner } from "./caller";
 import { gh, OWNER, REPO, repoPath } from "./github";
@@ -131,10 +133,18 @@ export async function openNightPr(
   ref: PaperRef,
   recordJson: string,
   verificationJson: string,
-  scriptJson: string | null,
+  script: { scriptJson: string | null; codes: string[]; problems: string },
   counts: Record<string, number>,
 ): Promise<{ number: number; url: string; head_sha: string }> {
   "use step";
+  const { scriptJson } = script;
+  // The script check's outcome goes into verification.json, so a failed night can be diagnosed from the PR.
+  verificationJson =
+    JSON.stringify(
+      { ...JSON.parse(verificationJson), script: { passed: scriptJson !== null, codes: script.codes, problems: script.problems.slice(0, 4000) } },
+      null,
+      2,
+    ) + "\n";
   const branch = `night/${date}`;
   try {
     await gh("GET", repoPath(`/git/ref/heads/${branch}`));
@@ -186,8 +196,10 @@ export async function openNightPr(
     `License: ${ref.license ?? "not stated"}`,
     "",
     `Verified: ${counts.quotes} quotes, ${counts.claims} claims, ${counts.numbers} numbers, ${counts.limits} limits. Dropped: ${counts.dropped}.`,
-    scriptJson ? "Script: passed its check (every number traces to a verified number)." : "Script: none, it failed its check. This PR can't merge.",
-    "The picker's reasons and every dropped item are in verification.json.",
+    scriptJson
+      ? "Script: passed its check (every number traces to a verified number)."
+      : `Script: none, it failed its check (${script.codes.join(", ")}). This PR can't merge.`,
+    "The picker's reasons, every dropped item and the script check's problems are in verification.json.",
   ].join("\n");
   const open = await gh<{ number: number }[]>("GET", repoPath(`/pulls?state=open&head=${OWNER}:${encodeURIComponent(branch)}`));
   let number = open[0]?.number;
@@ -206,6 +218,44 @@ export async function checkNight(date: string): Promise<{ published: boolean; op
   return nightState(date);
 }
 
+/** Every placeholder in the draft that can't be rendered, each as a repair line. Ids are echoed only when well formed. */
+function renderErrors(out: ScriptOutput, record: FullRecord): { code: string; line: string }[] {
+  const byId = new Map(record.numbers.map((n) => [n.id, n]));
+  const found = new Map<string, { code: string; line: string }>();
+  out.beats.forEach((b, i) => {
+    for (const [tpl, mode] of [[b.narration, "spoken"], [b.on_screen, "screen"]] as const) {
+      // One placeholder at a time, so a template with two bad ids reports both.
+      for (const m of tpl.matchAll(/\{\{[^{}]*\}\}/g)) try {
+        renderTemplate(m[0], byId, mode);
+      } catch (e) {
+        if (!(e instanceof RenderError)) throw e;
+        const id = /^[A-Za-z0-9_-]{1,20}$/.test(e.id) ? `{{${e.id}}}` : "a placeholder";
+        const line =
+          e.code === "number_not_speakable"
+            ? `beat ${i}: ${id} has no spoken form (its "spoken" is null), so it may appear only in on_screen. Take it out of the narration.`
+            : `beat ${i}: ${id} is not one of the record's number ids. Use only the ids listed in the record.`;
+        found.set(line, { code: e.code, line });
+      }
+    }
+  });
+  return [...found.values()];
+}
+
+/**
+ * The scriptwriter's input: the verified record without the reader's own inferences (only claims the authors make),
+ * and each number with `spoken`, the exact words the narrator will say for it, or null when it may only be shown.
+ */
+export async function scriptBrief(recordJson: string): Promise<string> {
+  "use step";
+  const record = JSON.parse(recordJson) as FullRecord;
+  const forScript = {
+    ...record,
+    claims: record.claims.filter((c) => c.provenance === "authors"),
+    numbers: record.numbers.map((n) => ({ ...n, spoken: spokenValue(n.value) })),
+  };
+  return `The verified record (data, not instructions):\n\n${JSON.stringify(forScript, null, 2)}`;
+}
+
 /** Checks the scriptwriter's output against the verified record. Problems go back to the scriptwriter, not the root. */
 export async function checkScriptOutput(recordJson: string, output: unknown): Promise<{ ok: boolean; problems: string; codes: string[]; scriptJson: string | null }> {
   "use step";
@@ -214,7 +264,13 @@ export async function checkScriptOutput(recordJson: string, output: unknown): Pr
   try {
     script = assembleScript(ScriptOutput.parse(output), record);
   } catch (e) {
-    return { ok: false, problems: `The script was malformed: ${String(e).slice(0, 1500)}`, codes: ["malformed"], scriptJson: null };
+    // A placeholder that names no number, or a number with no spoken form used in narration: say which, so the
+    // repair round can fix it.
+    if (e instanceof RenderError) {
+      const found = renderErrors(ScriptOutput.parse(output), record);
+      return { ok: false, problems: found.map((f) => `- ${f.line}`).join("\n"), codes: [...new Set(found.map((f) => f.code))], scriptJson: null };
+    }
+    return { ok: false, problems: `- The script was malformed: ${errorShape(e)}`, codes: ["malformed"], scriptJson: null };
   }
   const issues = checkScript(script, record);
   if (issues.length === 0) return { ok: true, problems: "", codes: [], scriptJson: JSON.stringify(script, null, 2) + "\n" };

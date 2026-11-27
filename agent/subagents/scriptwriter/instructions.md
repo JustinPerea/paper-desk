@@ -12,6 +12,7 @@ Beats, in this order:
 
 Rules:
 - **Numbers only as placeholders.** Wherever a number goes, in narration or on screen, write `{{id}}` with the id of one of the record's numbers, for example "the score rose to {{n2}}". The program fills in the exact value: spoken in words for narration, as printed for the screen. Write no other numbers at all: no digits, no number words ("seven", "twenty"), no fractions or multipliers ("half", "double", "twice"), no "percent" outside a placeholder. If a sentence needs a count that isn't in the record, rephrase it without one ("a few", "several", "both").
+- Each number in the record has `spoken`: the exact words the narrator will say for it. A number whose `spoken` is null can't be said exactly, so use it only in on_screen, never in narration.
 - Use a number only where its meaning matches the record: check its unit, what it's compared with, and the condition it was measured under.
 - **Names:** use only names printed in the record's title, author list, named people or quotes.
 - **narration** is spoken; **on_screen** is a short line for the screen, in sentence case (a run of capitalized words is read as a name and must be printed in the record).

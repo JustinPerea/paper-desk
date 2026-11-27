@@ -6,7 +6,7 @@ import { applyVerification, verifyRecord } from "../lib/verify.ts";
 import { Script, assembleScript, checkScript, estimateSeconds } from "../lib/script.ts";
 import type { ScriptIssue } from "../lib/script.ts";
 import { ScriptOutput } from "../lib/script-schema.ts";
-import { RenderError, renderTemplate } from "../lib/script-template.ts";
+import { RenderError, numberIssues, renderTemplate } from "../lib/script-template.ts";
 
 const verified = applyVerification(FullRecord.parse(gold("2611.27106.record.json")), verifyRecord(FullRecord.parse(gold("2611.27106.record.json")), parseFixture("2611.27106"))).record;
 const byId = new Map(verified.numbers.map((n) => [n.id, n]));
@@ -129,6 +129,17 @@ test("scaled values are said with their scale and pass the spoken-number check",
   assert.ok(has(checkScript(s, rec), "unverified_spoken_number") || has(checkScript(s, rec), "render_mismatch"));
 });
 
+test("a dollar amount is said in dollars and passes the spoken-number check", () => {
+  const rec = { ...verified, numbers: [...verified.numbers, { ...verified.numbers[0]!, id: "n9", value: "$30", unit: "USD" }] };
+  const o = { never_say: [], beats: script().beats.map((b) => ({ kind: b.kind, narration: b.narration_template, on_screen: b.on_screen_template })) };
+  o.beats[1]!.narration += " A run cost {{n9}}.";
+  o.beats[1]!.on_screen = "Cost per run: {{n9}}";
+  const s = assembleScript(o, rec);
+  assert.match(s.beats[1]!.narration, /A run cost thirty dollars\./);
+  assert.equal(s.beats[1]!.on_screen, "Cost per run: $30");
+  assert.deepEqual(checkScript(s, rec), []);
+});
+
 test("number_ids are the placeholders used, in order, once each", () => {
   const s = script();
   assert.deepEqual(s.beats.map((b) => b.number_ids), [[], [], ["n4"], ["n1", "n2", "n3"], [], []]);
@@ -224,6 +235,15 @@ for (const [name, text] of NUMBER_ATTACKS) {
     assert.ok(has(checkScript(withScreen(text), verified), "number_outside_placeholder"), "on_screen_template");
   });
 }
+
+test("multipliers and fixed-size group words are rejected; 'pair' and 'score' only where they count", () => {
+  for (const w of ["it quadrupled", "a quintuple gain", "sextupled the cost", "a trio of agents", "two duos", "a quartet of models", "a pair of agents", "a score of runs", "A pair of tools", "a pair of {{n1}} runs", "a-pair-of agents", "the pair of agents"]) {
+    assert.ok(numberIssues(w).length > 0, w);
+  }
+  for (const w of ["preference pairs", "each pair is scored", "the score rose to {{n1}}", "a score of {{n1}}", "they pair each query with a document", "scores of both models", "the score of the model"]) {
+    assert.deepEqual(numberIssues(w), [], w);
+  }
+});
 
 test("ordinary words pass, including words one edit from a number word", () => {
   const ok = [
