@@ -3,6 +3,7 @@ import { z } from "zod";
 import type { Candidate } from "../../lib/arxiv-feed";
 import { ReaderOutput } from "../../lib/reader-schema";
 import {
+  checkNight,
   checkOutput,
   checkPick,
   checkRunner,
@@ -41,6 +42,9 @@ export default defineWorkflowTool({
   async execute({ date, arxiv_id }, ctx) {
     "use workflow";
     await checkRunner(ctx.session.auth.current);
+    const night = await checkNight(date);
+    if (night.published) return nothingTonight(`Night ${date} is already published.`);
+    if (night.open_pr !== null && !arxiv_id) return nothingTonight(`Night ${date} already has PR #${night.open_pr} open.`);
 
     // 1. Candidates and the pick.
     let ranked: string[];
@@ -80,10 +84,10 @@ export default defineWorkflowTool({
     }
 
     // 4. Verify, drop failures, and open the PR.
-    const final = await finalizeRecord(paper.ref, output);
+    const final = await finalizeRecord(paper.ref, output, pickReasons);
     if (!final.ok) return nothingTonight(`The record was malformed: ${final.error}`);
     if (final.counts.quotes === 0) return nothingTonight(`Nothing in the reader's record for ${paper.ref.arxiv_id} verified.`);
-    const pr = await openNightPr(date, paper.ref, final.recordJson, final.verificationJson, pickReasons, final.counts);
+    const pr = await openNightPr(date, paper.ref, final.recordJson, final.verificationJson, final.counts);
     const c = final.counts;
     return {
       pr: pr.number,

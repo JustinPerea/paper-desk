@@ -8,6 +8,9 @@ import { APP_LOGIN, gh, NIGHT_BRANCH, repoPath } from "../lib/github";
  * 2026-11-26): the merge happens only when the deterministic checks below pass, so the model can't publish
  * anything else. Justin reviews nights after they land and can revert one.
  */
+/** The only files a night PR may change. The script and video join in pieces 4 and 7. */
+const NIGHT_FILES = ["record.json", "verification.json", "script.json", "video.mp4"];
+
 export default defineTool({
   description: "Merge a night pull request once its checks pass.",
   inputSchema: z.object({ pr: z.number().int().positive(), head_sha: z.string().regex(/^[0-9a-f]{40}$/) }),
@@ -26,8 +29,10 @@ export default defineTool({
     if (p.user.login !== APP_LOGIN) throw new Error(`PR #${pr} was opened by ${p.user.login}, not ${APP_LOGIN}`);
     if (p.head.sha !== head_sha) throw new Error(`PR #${pr} changed after it was opened (head ${p.head.sha})`);
     const files = await gh<{ filename: string }[]>("GET", repoPath(`/pulls/${pr}/files?per_page=100`));
-    const outside = files.filter((f) => !f.filename.startsWith(`nights/${night[1]}/`));
-    if (outside.length) throw new Error(`PR #${pr} touches files outside nights/${night[1]}/: ${outside.map((f) => f.filename).join(", ")}`);
+    const allowed = new Set(NIGHT_FILES.map((name) => `nights/${night[1]}/${name}`));
+    const unexpected = files.filter((f) => !allowed.has(f.filename));
+    if (unexpected.length) throw new Error(`PR #${pr} changes files other than a night's own: ${unexpected.map((f) => f.filename).join(", ")}`);
+    if (!files.some((f) => f.filename === `nights/${night[1]}/record.json`)) throw new Error(`PR #${pr} has no record.json`);
     // With no human gate, the verifier re-run is the only content check. Until piece 4 wires it in here, refuse
     // every record except the spike placeholder, so a real night can't merge unchecked.
     const file = await gh<{ content: string }>("GET", repoPath(`/contents/nights/${night[1]}/record.json?ref=${head_sha}`));

@@ -57,3 +57,25 @@ export async function parsedFor(ref: PaperRef) {
 export function buildRecord(output: unknown, paper: ReturnType<typeof parseArxivHtml>, ref: PaperRef) {
   return assembleRecord(ReaderOutput.parse(output), paper, ref);
 }
+
+/** zod issue codes and paths only, never messages, which can carry the model's own strings. */
+export function errorShape(e: unknown): string {
+  const issues = (e as { issues?: { code?: string; path?: (string | number)[] }[] })?.issues;
+  if (!Array.isArray(issues)) return "record assembly failed";
+  return issues
+    .slice(0, 8)
+    .map((i) => `${(i.path ?? []).join(".") || "(root)"}: ${i.code ?? "invalid"}`)
+    .join("; ");
+}
+
+export async function nightState(date: string): Promise<{ published: boolean; open_pr: number | null }> {
+  let published = true;
+  try {
+    await gh("GET", repoPath(`/contents/nights/${date}/record.json?ref=main`));
+  } catch (e) {
+    if (!String(e).includes("-> 404")) throw e;
+    published = false;
+  }
+  const open = await gh<{ number: number }[]>("GET", repoPath(`/pulls?state=open&head=${OWNER}:${encodeURIComponent(`night/${date}`)}`));
+  return { published, open_pr: open[0]?.number ?? null };
+}

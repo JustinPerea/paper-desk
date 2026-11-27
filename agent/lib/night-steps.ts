@@ -3,8 +3,8 @@ import { paperForReader, repairMessage } from "../../lib/reader";
 import { cleanText } from "../../lib/sanitize";
 import { applyVerification, verifyRecord } from "../../lib/verify";
 import { requireNightRunner } from "./caller";
-import { gh, OWNER, repoPath } from "./github";
-import { alreadyRead, buildRecord, CATEGORIES, fetchText, loadPaper, MAX_CANDIDATES, parsedFor } from "./night-io";
+import { gh, OWNER, REPO, repoPath } from "./github";
+import { alreadyRead, buildRecord, CATEGORIES, errorShape, fetchText, loadPaper, MAX_CANDIDATES, nightState, parsedFor } from "./night-io";
 
 /**
  * The "use step" functions of read_night. They live apart from the tool so the workflow body imports nothing that
@@ -81,14 +81,15 @@ export async function checkOutput(ref: PaperRef, output: unknown): Promise<{ rep
   return { repair: repairMessage(verifyRecord(record, paper), record) };
 }
 
-export async function finalizeRecord(ref: PaperRef, output: unknown) {
+export async function finalizeRecord(ref: PaperRef, output: unknown, pickReasons: string) {
   "use step";
   const paper = await parsedFor(ref);
   let record;
   try {
     record = buildRecord(output, paper, ref);
   } catch (e) {
-    return { ok: false as const, error: String(e).slice(0, 300) };
+    // Only codes and paths: a zod message can carry the reader's own strings, and this text reaches the root model.
+    return { ok: false as const, error: errorShape(e) };
   }
   const result = verifyRecord(record, paper);
   if (!result.paper_match) return { ok: false as const, error: "the record names a different paper" };
@@ -104,7 +105,8 @@ export async function finalizeRecord(ref: PaperRef, output: unknown) {
   return {
     ok: true as const,
     recordJson: JSON.stringify(kept, null, 2) + "\n",
-    verificationJson: JSON.stringify({ arxiv_id: ref.arxiv_id, version: ref.version, counts, dropped, reported }, null, 2) + "\n",
+    verificationJson:
+      JSON.stringify({ arxiv_id: ref.arxiv_id, version: ref.version, counts, dropped, reported, pick_reasons: pickReasons }, null, 2) + "\n",
     counts,
   };
 }
@@ -115,7 +117,6 @@ export async function openNightPr(
   ref: PaperRef,
   recordJson: string,
   verificationJson: string,
-  pickReasons: string,
   counts: Record<string, number>,
 ): Promise<{ number: number; url: string; head_sha: string }> {
   "use step";
@@ -127,35 +128,59 @@ export async function openNightPr(
     const main = await gh<{ object: { sha: string } }>("GET", repoPath("/git/ref/heads/main"));
     await gh("POST", repoPath("/git/refs"), { ref: `refs/heads/${branch}`, sha: main.object.sha });
   }
-  const put = async (path: string, content: string, message: string) => {
-    let sha: string | undefined;
+  const dir = `nights/${date}`;
+  const onBranch = async (): Promise<{ name: string; path: string; sha: string }[]> => {
     try {
-      sha = (await gh<{ sha: string }>("GET", repoPath(`/contents/${path}?ref=${encodeURIComponent(branch)}`))).sha;
+      return await gh("GET", repoPath(`/contents/${dir}?ref=${encodeURIComponent(branch)}`));
     } catch (e) {
       if (!String(e).includes("-> 404")) throw e;
+      return [];
     }
-    await gh("PUT", repoPath(`/contents/${path}`), { message, content: Buffer.from(content).toString("base64"), branch, ...(sha ? { sha } : {}) });
   };
-  await put(`nights/${date}/record.json`, recordJson, `Night ${date}: record for ${ref.arxiv_id}${ref.version}`);
-  await put(`nights/${date}/verification.json`, verificationJson, `Night ${date}: verification for ${ref.arxiv_id}${ref.version}`);
+  let headSha = "";
+  const existing = await onBranch();
+  const put = async (name: string, content: string, message: string) => {
+    const sha = existing.find((f) => f.name === name)?.sha;
+    const res = await gh<{ commit: { sha: string } }>("PUT", repoPath(`/contents/${dir}/${name}`), {
+      message,
+      content: Buffer.from(content).toString("base64"),
+      branch,
+      ...(sha ? { sha } : {}),
+    });
+    headSha = res.commit.sha;
+  };
+  await put("record.json", recordJson, `Night ${date}: record for ${ref.arxiv_id}${ref.version}`);
+  await put("verification.json", verificationJson, `Night ${date}: verification for ${ref.arxiv_id}${ref.version}`);
+  // A rerun for the same date must not carry files from an earlier run (an old script, say) into the merge.
+  for (const f of existing.filter((x) => !["record.json", "verification.json"].includes(x.name))) {
+    const res = await gh<{ commit: { sha: string } }>("DELETE", repoPath(`/contents/${f.path}`), {
+      message: `Night ${date}: remove ${f.name} from an earlier run`,
+      sha: f.sha,
+      branch,
+    });
+    headSha = res.commit.sha;
+  }
+  const title = `Night ${date}: ${ref.arxiv_id}${ref.version}`;
+  const body = [
+    `Paper: ${ref.url}`,
+    `License: ${ref.license ?? "not stated"}`,
+    "",
+    `Verified: ${counts.quotes} quotes, ${counts.claims} claims, ${counts.numbers} numbers, ${counts.limits} limits. Dropped: ${counts.dropped}.`,
+    "The picker's reasons and every dropped item are in verification.json.",
+  ].join("\n");
   const open = await gh<{ number: number }[]>("GET", repoPath(`/pulls?state=open&head=${OWNER}:${encodeURIComponent(branch)}`));
   let number = open[0]?.number;
   if (number === undefined) {
-    const created = await gh<{ number: number }>("POST", repoPath("/pulls"), {
-      title: `Night ${date}: ${ref.arxiv_id}${ref.version}`,
-      head: branch,
-      base: "main",
-      body: [
-        `Paper: ${ref.url}`,
-        `License: ${ref.license ?? "not stated"}`,
-        "",
-        `Verified: ${counts.quotes} quotes, ${counts.claims} claims, ${counts.numbers} numbers, ${counts.limits} limits. Dropped: ${counts.dropped} (see verification.json).`,
-        "",
-        `Why this paper (the picker's words): ${pickReasons}`,
-      ].join("\n"),
-    });
-    number = created.number;
+    number = (await gh<{ number: number }>("POST", repoPath("/pulls"), { title, head: branch, base: "main", body })).number;
+  } else {
+    await gh("PATCH", repoPath(`/pulls/${number}`), { title, body });
   }
-  const pull = await gh<{ html_url: string; head: { sha: string } }>("GET", repoPath(`/pulls/${number}`));
-  return { number, url: pull.html_url, head_sha: pull.head.sha };
+  // The sha from our own last write, not a read of the PR, which can lag behind it for a moment.
+  return { number, url: `https://github.com/${OWNER}/${REPO}/pull/${number}`, head_sha: headSha };
+}
+
+/** Whether tonight is already published, and any open PR for it. Stops reruns from spending the model key twice. */
+export async function checkNight(date: string): Promise<{ published: boolean; open_pr: number | null }> {
+  "use step";
+  return nightState(date);
 }
