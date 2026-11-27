@@ -42,6 +42,14 @@ test("spokenValue: numerals, decimals, percent, multipliers, scales, ranges", ()
     ["２６", "twenty-six"],
     ["0", "zero"],
     ["999,999,999,999", integerToWords(999_999_999_999)],
+    ["$30", "thirty dollars"],
+    ["$1", "one dollar"],
+    ["$1.00", "one point zero zero dollars"],
+    ["$1,200", "one thousand two hundred dollars"],
+    ["$1.2B", "one point two billion dollars"],
+    ["$30-$40", "thirty to forty dollars"],
+    ["$30–40", "thirty to forty dollars"],
+    ["-$5", "minus five dollars"],
   ];
   for (const [v, w] of cases) assert.equal(spokenValue(v), w, v);
 });
@@ -49,7 +57,7 @@ test("spokenValue: numerals, decimals, percent, multipliers, scales, ranges", ()
 test("spokenValue returns null for anything it cannot render exactly", () => {
   for (const v of [
     "", "abc", "~5", "<5", ">=5", "+5", "5 ms", "5ms", "5m", "5b", "1,200K", ".5", "5.", "007", "00.5", "1e5", "1/2", "5-", "-", "1.2.3",
-    "1,000,000,000,000", "0.1234567890123", "26.8 percent", "2026-11-26", "5 to 10", "$5", "5%%", "x3", "five", "5 and 6", "1 000",
+    "1,000,000,000,000", "0.1234567890123", "26.8 percent", "2026-11-26", "5 to 10", "5$", "$$5", "30-$40", "$5%", "$3x", "US$30", "€30", "$ 30x", "5%%", "x3", "five", "5 and 6", "1 000",
   ]) {
     assert.equal(spokenValue(v), null, JSON.stringify(v));
   }

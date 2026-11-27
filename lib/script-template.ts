@@ -51,11 +51,16 @@ const TENS = "twenty thirty forty fifty sixty seventy eighty ninety".split(" ");
 const SCALES = "hundred thousand million billion trillion dozen".split(" ");
 const FRACTIONS = "half halves quarter quarters third thirds fourth fourths fifth fifths sixth sixths seventh sevenths eighth eighths ninth ninths tenth tenths".split(" ");
 const ORDINALS = "twelfth twelfths twentieth twentieths thirtieth thirtieths fortieth fortieths fiftieth fiftieths sixtieth sixtieths seventieth seventieths eightieth eightieths ninetieth ninetieths".split(" ");
-const MULTIPLIERS = "double doubled doubles doubling triple tripled triples tripling twice thrice".split(" ");
+const MULTIPLIERS = (
+  "double doubled doubles doubling triple tripled triples tripling quadruple quadrupled quadruples quadrupling " +
+  "quintuple quintupled quintuples quintupling sextuple sextupled sextuples sextupling twice thrice"
+).split(" ");
+/** Nouns that name a group of a fixed size. "pair" and "score" have phrase rules below, since both are ordinary words. */
+const GROUPS = "duo duos trio trios quartet quartets quintet quintets sextet sextets octet octets".split(" ");
 const PERCENT = ["percent", "percentage"];
 const PLURALS = [...SCALES.filter((w) => w !== "dozen").map((w) => `${w}s`), "dozens", "twenties", "thirties", "forties", "fifties", "sixties", "seventies", "eighties", "nineties"];
 /** Every word that states or builds a number, except "one" and "point", which have idiom rules below. */
-const NUMBER_WORDS = new Set([...SINGLE, ...TENS, ...SCALES, ...FRACTIONS, ...ORDINALS, ...MULTIPLIERS, ...PERCENT, ...PLURALS]);
+const NUMBER_WORDS = new Set([...SINGLE, ...TENS, ...SCALES, ...FRACTIONS, ...ORDINALS, ...MULTIPLIERS, ...GROUPS, ...PERCENT, ...PLURALS]);
 /**
  * Words that change a number when they sit next to its placeholder: scale and unit letters ("{{n}} K", "{{n}} bn"),
  * ordinal endings, "fold", "pct", and "times", which turns a count into a multiplier ("{{n}} times faster"; write
@@ -78,7 +83,7 @@ export const FUZZY_ALLOWLIST = new Set(
   (
     "even seen sever tree thee there threw thrive height weight weighty light might mighty night right sight tight fight " +
     "fort forth forte foray tent teeth nifty filth doable doubly doubler doublet doublets doze dozed dozer twine tripe " +
-    "trifle triplet triplex calves halve halved quartet percept thirsty silty"
+    "trifle triplet triplex calves halve halved percept thirsty silty"
   ).split(" "),
 );
 
@@ -212,6 +217,9 @@ export function numberIssues(template: string): string[] {
         (next !== undefined && (next.w === "of" || next.w === "another") && spaced(next.sep)) ||
         (prev !== undefined && ["no", "any", "every", "some"].includes(prev.w) && spaced(k.sep));
       if (!idiom) issues.add(`"${k.text}" states a number (only "no one", "any one", "every one", "some one", "one of" and "one another" are allowed)`);
+    } else if ((k.w === "pair" || k.w === "score") && prev !== undefined && prev.w === "a" && spaced(k.sep) && next !== undefined && next.w === "of" && spaced(next.sep) && !/^ *\u0001/.test(t.slice(next.end))) {
+      // "a pair of agents" is two and "a score of runs" is twenty; "a score of {{n}}" is a metric and passes.
+      issues.add(`"a ${k.text} of" states a number`);
     } else if (k.w === "point") {
       const numTok = (o: { w: string } | undefined, sep: string) => o !== undefined && (NUMBER_WORDS.has(o.w) || o.w === "one") && spaced(sep);
       const holder = /\u0001 *$/.test(t.slice(0, k.index)) || /^ *\u0001/.test(t.slice(k.end));

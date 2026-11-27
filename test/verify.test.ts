@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { gold, parseFixture } from "./helpers.ts";
 import { FullRecord } from "../lib/record.ts";
-import { applyVerification, containsNumber, numerals, stripReported, verifyRecord } from "../lib/verify.ts";
+import { applyVerification, containsNumber, numerals, stripReported, verifyRecord, contextInQuote } from "../lib/verify.ts";
 
 const paper = parseFixture("2611.27106");
 const base = () => FullRecord.parse(gold("2611.27106.record.json"));
@@ -362,6 +362,26 @@ test("context matching: prefix of five letters, stopwords and short words are fr
 
 test("a context word that shares fewer than five letters with the quote's words fails", () => {
   assert.equal(withText((r) => (r.numbers[1]!.condition = "automatic scoring")).v.numbers[1]!.status, "context_not_in_quote");
+});
+
+test("negation and direction words in a context must be in the quote as the same word", () => {
+  const q = "accuracy rose when retrieval was enabled";
+  assert.ok(contextInQuote("retrieval enabled", q));
+  for (const c of ["retrieval not enabled", "no retrieval", "lower accuracy", "less retrieval", "without retrieval", "only retrieval", "retrieval up"]) {
+    assert.equal(contextInQuote(c, q), false, c);
+  }
+  assert.ok(contextInQuote("latency did not change", "latency did not change"));
+  assert.ok(contextInQuote("the model cannot use tools", "the model can't use tools"), "can't and cannot both carry a not");
+  assert.equal(contextInQuote("lower latency", "latency lowered"), false, "a direction word needs the same word, not a prefix");
+});
+
+test("context words match on a stem, not a loose five-letter prefix", () => {
+  assert.equal(contextInQuote("tokens increase", "tokens increment by step"), false);
+  assert.ok(contextInQuote("accurate retrieval", "retrieval accuracy"));
+  assert.ok(contextInQuote("evaluated conditions", "the evaluation condition"));
+  assert.ok(contextInQuote("primarily", "the primary metric"));
+  assert.ok(contextInQuote("improvement", "they improve recall"));
+  assert.equal(contextInQuote("supervised", "unsupervised training"), false);
 });
 
 // --- named_people must be on the page ---

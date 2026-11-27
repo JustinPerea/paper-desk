@@ -118,27 +118,65 @@ function anchorTexts(paper: ParsedPaper): Map<string, string> {
 /** Words too common to carry meaning: function words and comparison scaffolding ("versus", "compared"). Words that give a direction (more, less, most, over, under, above, below, before, after, without) are deliberately not here: a comparison that flips one of them must still be in the quote. */
 const CONTEXT_STOPWORDS = new Set(
   (
-    "that this with from than then them they their there these those which while when where what were been being have does also only " +
+    "that this with from than then them they their there these those which while when where what were been being have does also " +
     "into across versus against between among each other such same both very about using used upon onto within through during compared relative relatively whose whom will would could should"
   ).split(" "),
 );
 
-const plainWords = (s: string): string[] => normalizeText(s).normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().match(/\p{L}+/gu) ?? [];
+/**
+ * Words that flip or move a number's meaning, short ones included: "not", "no", "low", "up". A context that uses one
+ * must find that exact word in the quote; a prefix or stem match would let "less" pass on "lesson" or "lower" on
+ * "lowered". The rule checks that the word is in the quote, not where: a "not" anywhere in the quote satisfies it.
+ */
+const POLARITY_WORDS = new Set(
+  (
+    "not no nor non none never neither without only less more fewer least most low lower lowest high higher highest " +
+    "worse worst better best below above under over up down before after min max"
+  ).split(" "),
+);
+
+/** "don't" and "cannot" are said with a "not": split them out so the polarity rule sees it. */
+const plainWords = (s: string): string[] =>
+  normalizeText(s)
+    .replace(/n['’]t\b/gi, " not")
+    .replace(/\bcannot\b/gi, "can not")
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .toLowerCase()
+    .match(/\p{L}+/gu) ?? [];
+
+/** Common English endings, longest first. One is removed, and only when four letters or more remain. */
+// No "ment": "increment" would stem to "incre" and match "increase". "improvement" still matches "improve" by prefix.
+const SUFFIXES = "ations ation ings ing ions ion ies ied ily ally ly ed es s e al".split(" ");
+function stem(w: string): string {
+  for (const suf of SUFFIXES) if (w.endsWith(suf) && w.length - suf.length >= 4) return suf === "ily" || suf === "ies" || suf === "ied" ? w.slice(0, -suf.length) + "y" : w.slice(0, -suf.length);
+  return w;
+}
+/** Two stems agree when equal, or when they share all but the last letter of the shorter one, and at least five. */
+function sameStem(a: string, b: string): boolean {
+  if (a === b) return true;
+  let i = 0;
+  while (i < a.length && i < b.length && a[i] === b[i]) i++;
+  return i >= Math.max(5, Math.min(a.length, b.length) - 1);
+}
 
 /**
- * A number's `comparison` or `condition` must come from its quote: every content word (letters only, four or more
- * of them, not a stopword) shares a prefix of min(length, 5) characters with some word of the quote. The prefix
- * match lets "conditions" match "condition" and "primarily" match "primary". Null and empty are grounded.
+ * A number's `comparison` or `condition` must come from its quote. A negation or direction word (any length) must be
+ * in the quote as the same word. Every other content word (letters only, four or more of them, not a stopword) must
+ * share a stem with some word of the quote: "conditions" matches "condition", "primarily" matches "primary",
+ * "accurate" matches "accuracy", but "increase" does not match "increment". Null and empty are grounded.
  */
 export function contextInQuote(context: string | null, quote: string): boolean {
   if (!context) return true;
   const q = plainWords(quote);
-  return plainWords(context)
-    .filter((w) => w.length >= 4 && !CONTEXT_STOPWORDS.has(w))
-    .every((w) => {
-      const k = Math.min(w.length, 5);
-      return q.some((x) => x.length >= k && x.slice(0, k) === w.slice(0, k));
-    });
+  const qSet = new Set(q);
+  const qStems = q.filter((x) => x.length >= 4).map(stem);
+  return plainWords(context).every((w) => {
+    if (POLARITY_WORDS.has(w)) return qSet.has(w);
+    if (w.length < 4 || CONTEXT_STOPWORDS.has(w)) return true;
+    const sw = stem(w);
+    return qStems.some((x) => sameStem(sw, x));
+  });
 }
 
 /** Normalized page text a named person must appear in: abstract, paragraphs, tables and figure captions. */

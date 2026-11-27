@@ -71,8 +71,8 @@ export function shiftDecimal(num: string, exp: number): string {
   return rest ? `${whole}.${rest}` : whole;
 }
 
-// One side of a value: an optional sign (leading side only), a numeral and an optional suffix.
-const PART = String.raw`(\d+(?:\.\d+)?)(%|x|×|K|k|M|B|bn)?`;
+// One side of a value: an optional sign (leading side only), an optional "$", a numeral and an optional suffix.
+const PART = String.raw`(\$)?(\d+(?:\.\d+)?)(%|x|×|K|k|M|B|bn)?`;
 const VALUE = new RegExp(String.raw`^(-)?${PART}(?:-${PART})?$`);
 
 interface Part {
@@ -81,6 +81,8 @@ interface Part {
 }
 interface Parsed {
   negative: boolean;
+  /** A dollar amount: "$" on the first side (and, in a range, optionally the second). */
+  dollars: boolean;
   parts: Part[];
 }
 
@@ -94,9 +96,13 @@ function parse(value: string): Parsed | null {
   }
   const m = VALUE.exec(n.replace(/\s+(?=[xK×kMBb%])/g, ""));
   if (!m) return null;
-  const parts: Part[] = [{ num: m[2]!, suffix: m[3] }];
-  if (m[4] !== undefined) parts.push({ num: m[4], suffix: m[5] });
-  return { negative: m[1] === "-", parts };
+  const parts: Part[] = [{ num: m[3]!, suffix: m[4] }];
+  if (m[6] !== undefined) parts.push({ num: m[6], suffix: m[7] });
+  const dollars = m[2] === "$";
+  // "$" only on the second side ("30-$40") is ambiguous; a dollar amount is never a percent or a multiplier.
+  if (!dollars && m[5] === "$") return null;
+  if (dollars && parts.some((x) => x.suffix === "%" || x.suffix === "x" || x.suffix === "×")) return null;
+  return { negative: m[1] === "-", dollars, parts };
 }
 
 function renderPart(p: Part): string | null {
@@ -115,7 +121,8 @@ function renderPart(p: Part): string | null {
  * The value as a narrator says it, or null when it cannot be rendered exactly. Handles whole numbers up to the
  * billions (with thousands separators), decimals ("0.684" -> "zero point six eight four"), "%" ("percent"), a
  * multiplier "x" or "×" ("times"), the scale suffixes K/k, M, B/bn (thousand, million, billion), a leading minus
- * ("minus") and one range "a-b" ("a to b"). Anything else (signs like ~ or <, units, leading zeros, ".5", lowercase
+ * ("minus"), one range "a-b" ("a to b") and a dollar amount "$30" or "$1.2B-$2B" ("thirty dollars", "one point two
+ * billion to two billion dollars"). Anything else (signs like ~ or <, units, leading zeros, ".5", lowercase
  * "m" or "b", numbers of 13 digits or more) returns null.
  */
 export function spokenValue(value: string): string | null {
@@ -123,7 +130,8 @@ export function spokenValue(value: string): string | null {
   if (!p) return null;
   const sides = p.parts.map(renderPart);
   if (sides.some((s) => s === null)) return null;
-  return (p.negative ? "minus " : "") + sides.join(" to ");
+  const unit = p.dollars ? (p.parts.length === 1 && p.parts[0]!.num === "1" && !p.parts[0]!.suffix ? " dollar" : " dollars") : "";
+  return (p.negative ? "minus " : "") + sides.join(" to ") + unit;
 }
 
 /** The value as printed in the record (whitespace collapsed). It was verified to be in the quote. */
