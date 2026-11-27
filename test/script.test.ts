@@ -237,10 +237,10 @@ for (const [name, text] of NUMBER_ATTACKS) {
 }
 
 test("multipliers and fixed-size group words are rejected; 'pair' and 'score' only where they count", () => {
-  for (const w of ["it quadrupled", "a quintuple gain", "sextupled the cost", "a trio of agents", "two duos", "a quartet of models", "a pair of agents", "a score of runs", "A pair of tools"]) {
+  for (const w of ["it quadrupled", "a quintuple gain", "sextupled the cost", "a trio of agents", "two duos", "a quartet of models", "a pair of agents", "a score of runs", "A pair of tools", "a pair of {{n1}} runs", "a-pair-of agents", "the pair of agents"]) {
     assert.ok(numberIssues(w).length > 0, w);
   }
-  for (const w of ["preference pairs", "each pair is scored", "the score rose to {{n1}}", "a score of {{n1}}", "they pair each query with a document", "scores of both models"]) {
+  for (const w of ["preference pairs", "each pair is scored", "the score rose to {{n1}}", "a score of {{n1}}", "they pair each query with a document", "scores of both models", "the score of the model"]) {
     assert.deepEqual(numberIssues(w), [], w);
   }
 });

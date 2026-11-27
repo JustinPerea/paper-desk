@@ -152,7 +152,15 @@ function stem(w: string): string {
   for (const suf of SUFFIXES) if (w.endsWith(suf) && w.length - suf.length >= 4) return suf === "ily" || suf === "ies" || suf === "ied" ? w.slice(0, -suf.length) + "y" : w.slice(0, -suf.length);
   return w;
 }
-/** Two stems agree when equal, or when they share all but the last letter of the shorter one, and at least five. */
+/**
+ * Two words agree when their stems are equal or share all but the last letter of the shorter stem, and at least five
+ * letters. A stem under five letters is too short to trust ("normal" and "norm" both stem to "norm", "causal" and
+ * "cause" to "caus"), so such words must be equal or differ by a plural "s" or "es".
+ */
+function sameWord(w: string, sw: string, x: string, sx: string): boolean {
+  if (sw.length < 5 || sx.length < 5) return w === x || w === `${x}s` || x === `${w}s` || w === `${x}es` || x === `${w}es`;
+  return sameStem(sw, sx);
+}
 function sameStem(a: string, b: string): boolean {
   if (a === b) return true;
   let i = 0;
@@ -170,12 +178,12 @@ export function contextInQuote(context: string | null, quote: string): boolean {
   if (!context) return true;
   const q = plainWords(quote);
   const qSet = new Set(q);
-  const qStems = q.filter((x) => x.length >= 4).map(stem);
+  const qWords = q.filter((x) => x.length >= 4).map((x) => [x, stem(x)] as const);
   return plainWords(context).every((w) => {
     if (POLARITY_WORDS.has(w)) return qSet.has(w);
     if (w.length < 4 || CONTEXT_STOPWORDS.has(w)) return true;
     const sw = stem(w);
-    return qStems.some((x) => sameStem(sw, x));
+    return qWords.some(([x, sx]) => sameWord(w, sw, x, sx));
   });
 }
 

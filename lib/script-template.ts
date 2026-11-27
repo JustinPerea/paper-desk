@@ -217,9 +217,13 @@ export function numberIssues(template: string): string[] {
         (next !== undefined && (next.w === "of" || next.w === "another") && spaced(next.sep)) ||
         (prev !== undefined && ["no", "any", "every", "some"].includes(prev.w) && spaced(k.sep));
       if (!idiom) issues.add(`"${k.text}" states a number (only "no one", "any one", "every one", "some one", "one of" and "one another" are allowed)`);
-    } else if ((k.w === "pair" || k.w === "score") && prev !== undefined && prev.w === "a" && spaced(k.sep) && next !== undefined && next.w === "of" && spaced(next.sep) && !/^ *\u0001/.test(t.slice(next.end))) {
-      // "a pair of agents" is two and "a score of runs" is twenty; "a score of {{n}}" is a metric and passes.
-      issues.add(`"a ${k.text} of" states a number`);
+    } else if (
+      next !== undefined && next.w === "of" && /^[ -]+$/.test(next.sep) &&
+      (k.w === "pair" || (k.w === "score" && prev !== undefined && prev.w === "a" && /^[ -]+$/.test(k.sep) && !/^[ -]*\u0001/.test(t.slice(next.end))))
+    ) {
+      // "pair of" states two, with any word before it or a placeholder after it ("a pair of {{n}} runs").
+      // "a score of runs" is twenty, but "a score of {{n}}" and "the score of the model" are a metric and pass.
+      issues.add(`"${k.text} of" states a number`);
     } else if (k.w === "point") {
       const numTok = (o: { w: string } | undefined, sep: string) => o !== undefined && (NUMBER_WORDS.has(o.w) || o.w === "one") && spaced(sep);
       const holder = /\u0001 *$/.test(t.slice(0, k.index)) || /^ *\u0001/.test(t.slice(k.end));

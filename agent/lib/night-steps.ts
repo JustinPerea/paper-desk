@@ -4,7 +4,7 @@ import { ScriptOutput } from "../../lib/script-schema";
 import { cleanText } from "../../lib/sanitize";
 import { applyVerification, stripReported, verifyRecord } from "../../lib/verify";
 import { assembleScript, checkScript } from "../../lib/script";
-import { RenderError } from "../../lib/script-template";
+import { RenderError, renderTemplate } from "../../lib/script-template";
 import { spokenValue } from "../../lib/number-render";
 import { FullRecord } from "../../lib/record";
 import { requireNightRunner } from "./caller";
@@ -218,6 +218,29 @@ export async function checkNight(date: string): Promise<{ published: boolean; op
   return nightState(date);
 }
 
+/** Every placeholder in the draft that can't be rendered, each as a repair line. Ids are echoed only when well formed. */
+function renderErrors(out: ScriptOutput, record: FullRecord): { code: string; line: string }[] {
+  const byId = new Map(record.numbers.map((n) => [n.id, n]));
+  const found = new Map<string, { code: string; line: string }>();
+  out.beats.forEach((b, i) => {
+    for (const [tpl, mode] of [[b.narration, "spoken"], [b.on_screen, "screen"]] as const) {
+      // One placeholder at a time, so a template with two bad ids reports both.
+      for (const m of tpl.matchAll(/\{\{[^{}]*\}\}/g)) try {
+        renderTemplate(m[0], byId, mode);
+      } catch (e) {
+        if (!(e instanceof RenderError)) throw e;
+        const id = /^[A-Za-z0-9_-]{1,20}$/.test(e.id) ? `{{${e.id}}}` : "a placeholder";
+        const line =
+          e.code === "number_not_speakable"
+            ? `beat ${i}: ${id} has no spoken form (its "spoken" is null), so it may appear only in on_screen. Take it out of the narration.`
+            : `beat ${i}: ${id} is not one of the record's number ids. Use only the ids listed in the record.`;
+        found.set(line, { code: e.code, line });
+      }
+    }
+  });
+  return [...found.values()];
+}
+
 /**
  * The scriptwriter's input: the verified record without the reader's own inferences (only claims the authors make),
  * and each number with `spoken`, the exact words the narrator will say for it, or null when it may only be shown.
@@ -244,11 +267,8 @@ export async function checkScriptOutput(recordJson: string, output: unknown): Pr
     // A placeholder that names no number, or a number with no spoken form used in narration: say which, so the
     // repair round can fix it.
     if (e instanceof RenderError) {
-      const fix =
-        e.code === "number_not_speakable"
-          ? `{{${e.id}}} has no spoken form (its "spoken" is null), so it may appear only in on_screen. Take it out of the narration.`
-          : `{{${e.id}}} is not one of the record's number ids. Use only the ids listed in the record.`;
-      return { ok: false, problems: `- ${fix}`, codes: [e.code], scriptJson: null };
+      const found = renderErrors(ScriptOutput.parse(output), record);
+      return { ok: false, problems: found.map((f) => `- ${f.line}`).join("\n"), codes: [...new Set(found.map((f) => f.code))], scriptJson: null };
     }
     return { ok: false, problems: `- The script was malformed: ${errorShape(e)}`, codes: ["malformed"], scriptJson: null };
   }
