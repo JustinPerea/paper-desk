@@ -1,8 +1,11 @@
 import { z } from "zod";
 import type { FullRecord } from "./record.ts";
 import { normalizeText, numerals } from "./verify.ts";
+import { BEAT_KINDS } from "./script-schema.ts";
+import type { ScriptOutput } from "./script-schema.ts";
+import { spokenNumbers } from "./number-words.ts";
 
-export const BEAT_KINDS = ["cold_open", "setup", "method", "result", "limits", "credits"] as const;
+export { BEAT_KINDS };
 export type BeatKind = (typeof BEAT_KINDS)[number];
 
 export const Beat = z
@@ -42,7 +45,7 @@ export const WORDS_PER_SECOND = 2.5;
 export const DURATION_RANGE = [60, 110] as const;
 
 export interface ScriptIssue {
-  code: "paper_mismatch" | "invented_on_screen_number" | "unknown_number_id" | "digits_in_narration" | "never_say" | "too_short" | "too_long";
+  code: "paper_mismatch" | "invented_on_screen_number" | "unknown_number_id" | "digits_in_narration" | "unverified_spoken_number" | "never_say" | "too_short" | "too_long";
   beat?: number;
   message: string;
 }
@@ -71,6 +74,10 @@ export function checkScript(script: Script, verified: FullRecord): ScriptIssue[]
       if (!allowed.has(t)) issues.push({ code: "invented_on_screen_number", beat: i, message: `on_screen shows ${t}, which matches no verified number` });
     }
     if (/\p{Nd}/u.test(b.narration)) issues.push({ code: "digits_in_narration", beat: i, message: "narration contains digits; write numbers as words" });
+    for (const v of new Set(spokenNumbers(b.narration))) {
+      if (allowed.has(v) || /^(?:10|\d)$/.test(v)) continue;
+      issues.push({ code: "unverified_spoken_number", beat: i, message: `narration says ${v}, which matches no verified number` });
+    }
     for (const field of [b.narration, b.on_screen]) {
       const f = normalizeText(field).toLowerCase();
       for (const p of banned) {
@@ -84,4 +91,9 @@ export function checkScript(script: Script, verified: FullRecord): ScriptIssue[]
   if (secs < DURATION_RANGE[0]) issues.push({ code: "too_short", message: `estimated ${secs.toFixed(0)} s, minimum ${DURATION_RANGE[0]}` });
   if (secs > DURATION_RANGE[1]) issues.push({ code: "too_long", message: `estimated ${secs.toFixed(0)} s, maximum ${DURATION_RANGE[1]}` });
   return issues;
+}
+
+/** Code fills the paper identity from the record; Script.parse then runs the strict and ordering checks (throws). */
+export function assembleScript(out: ScriptOutput, record: FullRecord): Script {
+  return Script.parse({ ...out, paper: { arxiv_id: record.paper.arxiv_id, title: record.paper.title } });
 }

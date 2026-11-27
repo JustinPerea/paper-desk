@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 import { gold, parseFixture } from "./helpers.ts";
 import { FullRecord } from "../lib/record.ts";
 import { applyVerification, verifyRecord } from "../lib/verify.ts";
-import { Script, checkScript, estimateSeconds } from "../lib/script.ts";
+import { Script, assembleScript, checkScript, estimateSeconds } from "../lib/script.ts";
+import { ScriptOutput } from "../lib/script-schema.ts";
 
 const verified = applyVerification(FullRecord.parse(gold("2611.27106.record.json")), verifyRecord(FullRecord.parse(gold("2611.27106.record.json")), parseFixture("2611.27106"))).record;
 const script = (): Script => Script.parse(gold("2611.27106.script.json"));
@@ -110,4 +111,42 @@ test("non-ASCII digits in narration are flagged", () => {
   const s2 = script();
   s2.beats[0]!.narration += " २६ percent.";
   assert.ok(codes(s2).includes("digits_in_narration"));
+});
+
+test("a spoken number that matches a verified number passes", () => {
+  const s = script();
+  s.beats[3]!.narration += " Validity reached zero point six eight four."; // 0.684 is verified
+  assert.ok(!codes(s).includes("unverified_spoken_number"), JSON.stringify(checkScript(s, verified)));
+});
+
+test("an invented spoken number fails, with the beat and value", () => {
+  const s = script();
+  s.beats[3]!.narration += " It reached eighty-one percent.";
+  const hit = checkScript(s, verified).find((i) => i.code === "unverified_spoken_number");
+  assert.ok(hit);
+  assert.equal(hit.beat, 3);
+  assert.match(hit.message, /81/);
+});
+
+test("small counts up to ten are allowed, eleven is not", () => {
+  const s = script();
+  s.beats[1]!.narration += " Two runs and ten tasks.";
+  assert.ok(!codes(s).includes("unverified_spoken_number"));
+  const s2 = script();
+  s2.beats[1]!.narration += " Eleven runs.";
+  assert.ok(codes(s2).includes("unverified_spoken_number"));
+});
+
+test("assembleScript fills paper from the record", () => {
+  const { paper: _paper, ...out } = gold("2611.27106.script.json");
+  const parsed = ScriptOutput.parse(out);
+  const s = assembleScript(parsed, verified);
+  assert.deepEqual(s.paper, { arxiv_id: verified.paper.arxiv_id, title: verified.paper.title });
+  assert.deepEqual(checkScript(s, verified), []);
+});
+
+test("assembleScript rejects an out-of-order beat list", () => {
+  const { paper: _paper, ...out } = gold("2611.27106.script.json");
+  [out.beats[3], out.beats[4]] = [out.beats[4], out.beats[3]];
+  assert.throws(() => assembleScript(out, verified));
 });

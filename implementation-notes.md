@@ -89,3 +89,18 @@ An Opus review of PR #11 found no path to the token, to branch or path targets, 
 4. Reruns could spend the model key without bound. `read_night` now checks first: a night already on `main` is refused, and a night with an open PR is refused unless Justin names a paper.
 5. A rerun reused the branch and left earlier files and the old PR title. Files from an earlier run are deleted, the title and body are refreshed, and `publish_night` accepts only `record.json`, `verification.json`, `script.json` and `video.mp4` under `nights/<date>/`, with `record.json` required.
 6. `head_sha` came from a read of the PR right after writing, which can lag. It now comes from the last write's commit.
+
+## Piece 4 library (2026-11-26)
+
+- `lib/number-words.ts`: `spokenNumbers(text)` returns digit numerals (via `numerals()`) plus English number words as normalized numeral strings. Whole-word matching, "a hundred/a thousand", "and" inside a number, "point" decimals. A bare "hundred" or "thousand" with no count is not a number; ordinals and fractions are ignored. "one" counts as 1 ("no one" yields "1"), which is harmless because 0 to 10 are always allowed.
+- `lib/script-schema.ts`: `BEAT_KINDS` and the plain-zod `ScriptOutput` the scriptwriter fills. `lib/script.ts` imports and re-exports `BEAT_KINDS`.
+- `lib/script.ts`: new issue code `unverified_spoken_number` (a spoken number must be a verified value or a whole number 0 to 10); `assembleScript(out, record)` fills `paper` from the record and runs `Script.parse`, which throws on bad order or counts.
+- `lib/verify.ts`: `stripReported(record, reported)` removes sentences holding a reported numeral from the single-string fields `applyVerification` only reports. It works on any reported path, not only the four named fields; nullable fields (`change_for_agents`, `compact.limits`) become null, everything else "". Sentence split is on `.!?` followed by whitespace, so an abbreviation such as "et al. 2024" splits there; the cost is a slightly over-eager strip, never a surviving numeral.
+- Surprise: the spoken-number check also catches numbers the narrator says that are not in digits anywhere, so the gold script needed no change but a model that writes "twenty twenty-six" will be flagged unless that year is a verified value.
+
+## Piece 4 agent side (2026-11-26)
+
+- `scriptwriter` subagent (Sonnet 5.5, no tools, own token cap, `tool: false`) writes `script.json` from the verified record only. `checkScriptOutput` (a step) assembles it with `assembleScript` and runs `checkScript`. Problems go back to the scriptwriter for one repair round, never to the root. A night whose script still fails opens its PR without `script.json` and with `ready_to_publish: false`.
+- `finalizeRecord` now cuts sentences carrying unverified numerals from single-text fields (`stripReported`) and re-verifies; the saved record must be `all_ok`. Before this, those fields were only reported, and the record would have failed the publish check.
+- `publish_night` no longer has the spike-only gate. It requires `record.json` and `script.json`. `agent/lib/publish-check.ts` re-reads both at `head_sha`, re-fetches the arXiv page and requires a clean `verifyRecord` (every quote, number, claim and limit ok, no numeral issues, same paper), a valid `Script` and no `checkScript` issues. Problems come back as codes and paths only. Spike placeholders now fail `FullRecord.parse`, so they can't merge.
+- Spoken numbers in narration (written as words) are now checked: each must match a verified number, or be a count from zero to ten.

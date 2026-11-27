@@ -2,6 +2,7 @@ import { defineTool } from "eve/tools";
 import { z } from "zod";
 import { requireNightRunner } from "../lib/caller";
 import { APP_LOGIN, gh, NIGHT_BRANCH, repoPath } from "../lib/github";
+import { checkNight } from "../lib/publish-check";
 
 /**
  * The only side effect that publishes: merging a night PR. There is no human approval step (Justin's choice,
@@ -32,12 +33,12 @@ export default defineTool({
     const allowed = new Set(NIGHT_FILES.map((name) => `nights/${night[1]}/${name}`));
     const unexpected = files.filter((f) => !allowed.has(f.filename));
     if (unexpected.length) throw new Error(`PR #${pr} changes files other than a night's own: ${unexpected.map((f) => f.filename).join(", ")}`);
-    if (!files.some((f) => f.filename === `nights/${night[1]}/record.json`)) throw new Error(`PR #${pr} has no record.json`);
-    // With no human gate, the verifier re-run is the only content check. Until piece 4 wires it in here, refuse
-    // every record except the spike placeholder, so a real night can't merge unchecked.
-    const file = await gh<{ content: string }>("GET", repoPath(`/contents/nights/${night[1]}/record.json?ref=${head_sha}`));
-    const record = JSON.parse(Buffer.from(file.content, "base64").toString("utf8")) as { spike?: unknown };
-    if (record.spike !== true) throw new Error(`PR #${pr}: the verifier is not wired into publish_night yet (piece 4), so only spike records merge`);
+    const names = new Set(files.map((f) => f.filename.slice(`nights/${night[1]}/`.length)));
+    if (!names.has("record.json") || !names.has("script.json")) throw new Error(`PR #${pr} needs both record.json and script.json`);
+    // With no human gate this is the content check: the record must verify cleanly against the paper's page,
+    // fetched again here, and the script must pass its check against that record. Both are read at head_sha.
+    const problems = await checkNight(night[1]!, head_sha);
+    if (problems.length) throw new Error(`PR #${pr} failed the final check: ${problems.slice(0, 6).join("; ")}`);
     // `sha` makes GitHub refuse the merge if the head moved after the checks above.
     const merged = await gh<{ merged: boolean; sha: string }>("PUT", repoPath(`/pulls/${pr}/merge`), { merge_method: "squash", sha: head_sha });
     return { merged: merged.merged, sha: merged.sha };

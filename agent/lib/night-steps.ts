@@ -1,7 +1,10 @@
 import { type Candidate, parseArxivRss, selectNew, validatePick } from "../../lib/arxiv-feed";
 import { paperForReader, repairMessage } from "../../lib/reader";
+import { ScriptOutput } from "../../lib/script-schema";
 import { cleanText } from "../../lib/sanitize";
-import { applyVerification, verifyRecord } from "../../lib/verify";
+import { applyVerification, stripReported, verifyRecord } from "../../lib/verify";
+import { assembleScript, checkScript } from "../../lib/script";
+import type { FullRecord } from "../../lib/record";
 import { requireNightRunner } from "./caller";
 import { gh, OWNER, REPO, repoPath } from "./github";
 import { alreadyRead, buildRecord, CATEGORIES, errorShape, fetchText, loadPaper, MAX_CANDIDATES, nightState, parsedFor } from "./night-io";
@@ -93,14 +96,20 @@ export async function finalizeRecord(ref: PaperRef, output: unknown, pickReasons
   }
   const result = verifyRecord(record, paper);
   if (!result.paper_match) return { ok: false as const, error: "the record names a different paper" };
-  const { record: kept, dropped, reported } = applyVerification(record, result);
+  const applied = applyVerification(record, result);
+  const { dropped, reported } = applied;
+  // Sentences in single-text fields that carry an unverified numeral are cut, so the record re-verifies cleanly
+  // in publish_night.
+  const kept = stripReported(applied.record, reported);
+  const recheck = verifyRecord(kept, paper);
+  if (!recheck.all_ok) return { ok: false as const, error: "the record did not re-verify after dropping failures" };
   const counts = {
     quotes: kept.quotes.length,
     claims: kept.claims.length,
     numbers: kept.numbers.length,
     limits: kept.limits_authors.length,
     dropped: dropped.length,
-    numeral_issues_left: reported.length,
+    sentences_cut: reported.length,
   };
   return {
     ok: true as const,
@@ -117,6 +126,7 @@ export async function openNightPr(
   ref: PaperRef,
   recordJson: string,
   verificationJson: string,
+  scriptJson: string | null,
   counts: Record<string, number>,
 ): Promise<{ number: number; url: string; head_sha: string }> {
   "use step";
@@ -151,8 +161,13 @@ export async function openNightPr(
   };
   await put("record.json", recordJson, `Night ${date}: record for ${ref.arxiv_id}${ref.version}`);
   await put("verification.json", verificationJson, `Night ${date}: verification for ${ref.arxiv_id}${ref.version}`);
+  const written = ["record.json", "verification.json"];
+  if (scriptJson) {
+    await put("script.json", scriptJson, `Night ${date}: script for ${ref.arxiv_id}${ref.version}`);
+    written.push("script.json");
+  }
   // A rerun for the same date must not carry files from an earlier run (an old script, say) into the merge.
-  for (const f of existing.filter((x) => !["record.json", "verification.json"].includes(x.name))) {
+  for (const f of existing.filter((x) => !written.includes(x.name))) {
     const res = await gh<{ commit: { sha: string } }>("DELETE", repoPath(`/contents/${f.path}`), {
       message: `Night ${date}: remove ${f.name} from an earlier run`,
       sha: f.sha,
@@ -166,6 +181,7 @@ export async function openNightPr(
     `License: ${ref.license ?? "not stated"}`,
     "",
     `Verified: ${counts.quotes} quotes, ${counts.claims} claims, ${counts.numbers} numbers, ${counts.limits} limits. Dropped: ${counts.dropped}.`,
+    scriptJson ? "Script: passed its check (every number traces to a verified number)." : "Script: none, it failed its check. This PR can't merge.",
     "The picker's reasons and every dropped item are in verification.json.",
   ].join("\n");
   const open = await gh<{ number: number }[]>("GET", repoPath(`/pulls?state=open&head=${OWNER}:${encodeURIComponent(branch)}`));
@@ -183,4 +199,24 @@ export async function openNightPr(
 export async function checkNight(date: string): Promise<{ published: boolean; open_pr: number | null }> {
   "use step";
   return nightState(date);
+}
+
+/** Checks the scriptwriter's output against the verified record. Problems go back to the scriptwriter, not the root. */
+export async function checkScriptOutput(recordJson: string, output: unknown): Promise<{ ok: boolean; problems: string; codes: string[]; scriptJson: string | null }> {
+  "use step";
+  const record = JSON.parse(recordJson) as FullRecord;
+  let script;
+  try {
+    script = assembleScript(ScriptOutput.parse(output), record);
+  } catch (e) {
+    return { ok: false, problems: `The script was malformed: ${String(e).slice(0, 1500)}`, codes: ["malformed"], scriptJson: null };
+  }
+  const issues = checkScript(script, record);
+  if (issues.length === 0) return { ok: true, problems: "", codes: [], scriptJson: JSON.stringify(script, null, 2) + "\n" };
+  return {
+    ok: false,
+    problems: issues.map((i) => `- ${i.beat === undefined ? "" : `beat ${i.beat}: `}${i.message}`).join("\n"),
+    codes: [...new Set(issues.map((i) => i.code))],
+    scriptJson: null,
+  };
 }

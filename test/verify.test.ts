@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { gold, parseFixture } from "./helpers.ts";
 import { FullRecord } from "../lib/record.ts";
-import { applyVerification, containsNumber, numerals, verifyRecord } from "../lib/verify.ts";
+import { applyVerification, containsNumber, numerals, stripReported, verifyRecord } from "../lib/verify.ts";
 
 const paper = parseFixture("2611.27106");
 const base = () => FullRecord.parse(gold("2611.27106.record.json"));
@@ -288,4 +288,42 @@ test("paper metadata fields may use numerals from the parsed page, prose fields 
   });
   const key = bad.v.numeral_issues.map((i) => `${i.field}=${i.numeral}`).sort();
   assert.deepEqual(key, ["compact.claim=7", "compact.results[0].location=99"]);
+});
+
+test("stripReported removes sentences with unverified numerals so the record verifies clean", () => {
+  const r = base();
+  const keepClaim = r.compact.claim;
+  const keepChange = r.change_for_agents;
+  assert.ok(keepClaim && keepChange);
+  r.compact.claim = `${keepClaim} It also gained 97.3 points on a hidden set.`;
+  r.change_for_agents = `${keepChange} Expect a 91.7% drop in retries.`;
+  r.compact.limits = "Only 99.1 percent of cases were tested.";
+  const first = verifyRecord(r, paper);
+  assert.equal(first.all_ok, false);
+  const applied = applyVerification(r, first);
+  assert.ok(applied.reported.length >= 3);
+  const stripped = stripReported(applied.record, applied.reported);
+  assert.equal(applied.record.compact.claim, r.compact.claim, "input not mutated");
+  const second = verifyRecord(stripped, paper);
+  assert.deepEqual(second.numeral_issues, []);
+  assert.ok(second.all_ok);
+  assert.equal(stripped.compact.claim, keepClaim);
+  assert.equal(stripped.change_for_agents, keepChange);
+  assert.equal(stripped.compact.limits, null);
+});
+
+test("stripReported blanks a required string when nothing is left", () => {
+  const r = base();
+  r.compact.method = "We ran 88.8 trials.";
+  const applied = applyVerification(r, verifyRecord(r, paper));
+  const stripped = stripReported(applied.record, applied.reported);
+  assert.equal(stripped.compact.method, "");
+});
+
+test("invariant: strip(apply(gold)) verifies all_ok", () => {
+  const r = base();
+  const applied = applyVerification(r, verifyRecord(r, paper));
+  const stripped = stripReported(applied.record, applied.reported);
+  assert.deepEqual(stripped, r);
+  assert.ok(verifyRecord(stripped, paper).all_ok);
 });

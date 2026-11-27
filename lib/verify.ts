@@ -308,3 +308,31 @@ export function applyVerification(
     reported,
   };
 }
+
+const NULLABLE_FIELDS = new Set(["change_for_agents", "compact.limits"]);
+
+function splitSentences(s: string): string[] {
+  return s.split(/(?<=[.!?]["')\]]?)\s+/).filter((x) => x.trim() !== "");
+}
+
+/**
+ * applyVerification only reports numeral issues in single-string fields. This removes, from each reported field,
+ * every sentence that holds the reported numeral as a whole token. A field with nothing left becomes null when the
+ * schema allows it (change_for_agents, compact.limits) and "" otherwise. Returns a new record.
+ */
+export function stripReported(record: FullRecord, reported: NumeralIssue[]): FullRecord {
+  const out = structuredClone(record) as unknown as Record<string, unknown>;
+  const byField = new Map<string, string[]>();
+  for (const r of reported) byField.set(r.field, [...(byField.get(r.field) ?? []), r.numeral]);
+  for (const [field, nums] of byField) {
+    const keys = field.split(/\.|\[(\d+)\]/).filter((k): k is string => !!k).map((k) => (/^\d+$/.test(k) ? Number(k) : k));
+    let parent: any = out;
+    for (const k of keys.slice(0, -1)) parent = parent?.[k];
+    const last = keys[keys.length - 1]!;
+    const cur = parent?.[last];
+    if (typeof cur !== "string") continue;
+    const kept = splitSentences(cur).filter((sent) => !nums.some((n) => containsNumber(sent, n)));
+    parent[last] = kept.length ? kept.join(" ") : NULLABLE_FIELDS.has(field) ? null : "";
+  }
+  return out as unknown as FullRecord;
+}
