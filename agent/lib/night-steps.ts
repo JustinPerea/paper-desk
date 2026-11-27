@@ -212,6 +212,30 @@ export async function openNightPr(
   return { number, url: `https://github.com/${OWNER}/${REPO}/pull/${number}`, head_sha: headSha };
 }
 
+/**
+ * Claims tonight for one scheduled run by creating its branch at main's head. Creating a ref is atomic on GitHub, so
+ * a second run for the same date gets a 422 and stops instead of racing the first on the same branch. Returns the
+ * sha the branch was created at, or null when the branch already exists.
+ */
+export async function claimNight(date: string): Promise<string | null> {
+  "use step";
+  const main = await gh<{ object: { sha: string } }>("GET", repoPath("/git/ref/heads/main"));
+  try {
+    await gh("POST", repoPath("/git/refs"), { ref: `refs/heads/night/${date}`, sha: main.object.sha });
+    return main.object.sha;
+  } catch (e) {
+    if (String(e).includes("-> 422")) return null;
+    throw e;
+  }
+}
+
+/** Releases a claim when the run ends without a PR: deletes the branch only if nothing was written to it. */
+export async function releaseNight(date: string, claimedSha: string): Promise<void> {
+  "use step";
+  const ref = await gh<{ object: { sha: string } }>("GET", repoPath(`/git/ref/heads/night/${date}`)).catch(() => null);
+  if (ref?.object.sha === claimedSha) await gh("DELETE", repoPath(`/git/refs/heads/night/${date}`));
+}
+
 /** Whether tonight is already published, and any open PR for it. Stops reruns from spending the model key twice. */
 export async function checkNight(date: string): Promise<{ published: boolean; open_pr: number | null }> {
   "use step";
